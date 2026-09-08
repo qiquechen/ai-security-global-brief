@@ -1,0 +1,57 @@
+"""SMTP 发信（支持附件）。"""
+from __future__ import annotations
+
+import logging
+import smtplib
+from email.message import EmailMessage
+from email.utils import formataddr
+from pathlib import Path
+
+from .. import config
+
+logger = logging.getLogger(__name__)
+
+
+class MailError(RuntimeError):
+    pass
+
+
+def send_email(subject: str, recipients: str | list[str] | None = None,
+               text_body: str = "", docx_path: str | Path | None = None,
+               smtp_host: str | None = None, smtp_port: int | None = None,
+               smtp_user: str | None = None, smtp_pass: str | None = None) -> None:
+    """发送邮件。docx_path 存在则作为附件附上。"""
+    host = smtp_host or config.SMTP_HOST
+    port = smtp_port or config.SMTP_PORT
+    user = smtp_user or config.SMTP_USER
+    pwd = smtp_pass or config.SMTP_PASS
+    if not (host and user and pwd):
+        raise MailError("SMTP 配置不完整（请填 .env 的 SMTP_*）")
+
+    if recipients is None:
+        recipients = config.RECIPIENT
+    if isinstance(recipients, str):
+        recipients = [r.strip() for r in recipients.split(",") if r.strip()]
+    if not recipients:
+        raise MailError("未配置收件人 RECIPIENT")
+
+    msg = EmailMessage()
+    msg["From"] = formataddr((config.MAIL_SUBJECT_PREFIX.strip("【】"), user))
+    msg["To"] = ", ".join(recipients)
+    msg["Subject"] = subject
+    msg.set_content(text_body or "见附件。")
+
+    if docx_path:
+        docx_path = Path(docx_path)
+        if docx_path.exists():
+            msg.add_attachment(docx_path.read_bytes(),
+                               maintype="application",
+                               subtype="vnd.openxmlformats-officedocument.wordprocessingml.document",
+                               filename=docx_path.name)
+        else:
+            logger.warning("附件不存在，跳过：%s", docx_path)
+
+    with smtplib.SMTP_SSL(host, port, timeout=30) as server:
+        server.login(user, pwd)
+        server.send_message(msg)
+    logger.info("已发送邮件至 %s", recipients)

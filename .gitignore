@@ -1,0 +1,24 @@
+# 环境与密钥（严禁提交真实值）
+.env
+deepseek_API.txt
+*_API.txt
+
+# 运行时产物
+data/
+logs/
+*.db
+*.db-journal
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+
+# 输出文档（按需保留；如要归档摘报可取消下一行注释）
+report_output/
+tmp/
+*.zip

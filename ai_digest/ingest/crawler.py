@@ -1,0 +1,515 @@
+"""合规、增量的 RSS/Sitemap/栏目页采集器。"""
+from __future__ import annotations
+
+import calendar
+import hashlib
+import json
+import logging
+import os
+import re
+import threading
+import time
+from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
+from pathlib import Path
+from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
+from urllib.robotparser import RobotFileParser
+from xml.etree import ElementTree
+
+import feedparser
+import requests
+import trafilatura
+from bs4 import BeautifulSoup
+
+from .. import config
+from .models import Article, Candidate, CrawlStats, Source
+
+logger = logging.getLogger("ingest")
+
+TRACKING_KEYS = {
+    "fbclid", "gclid", "mc_cid", "mc_eid", "ref", "source",
+}
+DATE_META_KEYS = (
+    "article:published_time", "datepublished", "date", "dc.date",
+    "dcterms.date", "parsely-pub-date", "pubdate", "article:modified_time",
+)
+
+
+class FetchError(RuntimeError):
+    """可记录、可隔离的来源抓取错误。"""
+
+
+def canonicalize_url(value: str) -> str:
+    parsed = urlparse((value or "").strip())
+    query = [
+        (key, val)
+        for key, val in parse_qsl(parsed.query, keep_blank_values=True)
+        if not key.lower().startswith("utm_") and key.lower() not in TRACKING_KEYS
+    ]
+    path = re.sub(r"/{2,}", "/", parsed.path or "/")
+    if path != "/":
+        path = path.rstrip("/")
+    return urlunparse(
+        (parsed.scheme.lower(), parsed.netloc.lower(), path, "", urlencode(query), "")
+    )
+
+
+def parse_datetime(value: str | None) -> datetime | None:
+    if not value or not str(value).strip():
+        return None
+    cleaned = str(value).strip()
+    try:
+        parsed = datetime.fromisoformat(cleaned.replace("Z", "+00:00"))
+        return (parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)).astimezone(UTC)
+    except ValueError:
+        pass
+    try:
+        parsed = parsedate_to_datetime(cleaned)
+        return (parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)).astimezone(UTC)
+    except (TypeError, ValueError, OverflowError):
+        pass
+    for pattern in ("%b %d, %Y", "%B %d, %Y", "%Y/%m/%d", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(cleaned, pattern).replace(tzinfo=UTC)
+        except ValueError:
+            continue
+    return None
+
+
+def _domain_allowed(hostname: str | None, domains: tuple[str, ...]) -> bool:
+    host = (hostname or "").lower().rstrip(".")
+    return any(host == item or host.endswith("." + item) for item in domains)
+
+
+def url_allowed(source: Source, value: str) -> bool:
+    parsed = urlparse(value)
+    if parsed.scheme not in {"http", "https"}:
+        return False
+    if not _domain_allowed(parsed.hostname, source.allowed_domains):
+        return False
+    if parsed.query and canonicalize_url(value) != canonicalize_url(source.url):
+        return False
+    path = parsed.path or "/"
+    normalized_path = path.rstrip("/") or "/"
+    if normalized_path in source.exclude_exact_paths:
+        return False
+    if any(marker in path for marker in source.exclude_patterns):
+        return False
+    if source.include_patterns and not any(marker in path for marker in source.include_patterns):
+        return canonicalize_url(value) == canonicalize_url(source.url)
+    return True
+
+
+def load_sources(path: Path) -> list[Source]:
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    values = raw.get("sources") if isinstance(raw, dict) else raw
+    if not isinstance(values, list) or not values:
+        raise ValueError("config/sources.json 必须包含非空 sources 数组")
+    result: list[Source] = []
+    seen: set[str] = set()
+    for item in values:
+        source_id = str(item.get("id", "")).strip()
+        if not re.fullmatch(r"[a-z][a-z0-9_]{1,63}", source_id):
+            raise ValueError(f"来源 id 无效：{source_id!r}")
+        if source_id in seen:
+            raise ValueError(f"来源 id 重复：{source_id}")
+        seen.add(source_id)
+        method = str(item.get("method", "page"))
+        if method not in {"rss", "sitemap", "page"}:
+            raise ValueError(f"{source_id} method 无效：{method}")
+        homepage = str(item.get("homepage", "")).strip()
+        feed = str(item.get("feed", "")).strip()
+        entry_url = str(item.get("url", "")).strip()
+        if not entry_url:
+            entry_url = feed if method in {"rss", "sitemap"} and feed else homepage
+        parsed_urls = [urlparse(value) for value in (homepage, entry_url, feed) if value]
+        if not homepage or not entry_url or any(p.scheme not in {"http", "https"} or not p.hostname for p in parsed_urls):
+            raise ValueError(f"{source_id} 缺少有效 homepage/url/feed")
+        domains = tuple(
+            str(value).lower().strip().rstrip(".")
+            for value in item.get("allowed_domains", [])
+            if str(value).strip()
+        )
+        if not domains:
+            domains = tuple(dict.fromkeys(p.hostname.lower() for p in parsed_urls if p.hostname))
+        if not all(_domain_allowed(p.hostname, domains) for p in parsed_urls):
+            raise ValueError(f"{source_id} 入口 URL 超出 allowed_domains")
+        result.append(
+            Source(
+                id=source_id,
+                name=str(item.get("name", source_id)),
+                country=str(item.get("country", "")),
+                type=str(item.get("type", "")),
+                method=method,
+                homepage=homepage,
+                url=entry_url,
+                feed=feed,
+                enabled=bool(item.get("enabled", True)),
+                category_hint=str(item.get("category_hint", "")),
+                allowed_domains=domains,
+                include_patterns=tuple(str(x) for x in item.get("include_patterns", [])),
+                exclude_patterns=tuple(str(x) for x in item.get("exclude_patterns", [])),
+                exclude_exact_paths=tuple(
+                    str(x).rstrip("/") or "/" for x in item.get("exclude_exact_paths", [])
+                ),
+                max_candidates=max(1, int(item.get("max_candidates", 20))),
+                use_discovered_feed=bool(item.get("use_discovered_feed", False)),
+            )
+        )
+    return result
+
+
+class Fetcher:
+    """带代理、域名限制、robots、限速、重试和大小限制的客户端。"""
+
+    def __init__(self) -> None:
+        self.session = requests.Session()
+        self.user_agent = os.getenv(
+            "INGEST_USER_AGENT", "AISafetyDigest/1.0 (+replace-with-contact)"
+        )
+        self.session.headers.update(
+            {
+                "User-Agent": self.user_agent,
+                "Accept": "text/html,application/rss+xml,application/atom+xml,application/xml;q=0.9,*/*;q=0.5",
+                "Accept-Language": "en-US,en;q=0.9",
+            }
+        )
+        if config.PROXY:
+            self.session.proxies.update({"http": config.PROXY, "https": config.PROXY})
+        self.timeout = float(os.getenv("INGEST_TIMEOUT", "25"))
+        self.max_bytes = int(os.getenv("INGEST_MAX_RESPONSE_BYTES", str(4 * 1024 * 1024)))
+        self.retries = max(0, int(os.getenv("INGEST_RETRIES", "2")))
+        self.interval = max(0.0, float(os.getenv("INGEST_REQUEST_INTERVAL", "0.3")))
+        self.respect_robots = os.getenv("INGEST_RESPECT_ROBOTS", "true").lower() not in {"0", "false", "no"}
+        self.robots_fail_closed = os.getenv("INGEST_ROBOTS_FAIL_CLOSED", "true").lower() not in {"0", "false", "no"}
+        self._robots: dict[str, RobotFileParser | None] = {}
+        self._slots: dict[str, float] = {}
+        self._lock = threading.Lock()
+
+    def close(self) -> None:
+        self.session.close()
+
+    def __enter__(self) -> "Fetcher":
+        return self
+
+    def __exit__(self, *_args) -> None:
+        self.close()
+
+    def _wait_slot(self, value: str) -> None:
+        parsed = urlparse(value)
+        origin = f"{parsed.scheme}://{parsed.netloc}"
+        now = time.monotonic()
+        with self._lock:
+            scheduled = max(now, self._slots.get(origin, 0.0))
+            self._slots[origin] = scheduled + self.interval
+        delay = scheduled - now
+        if delay > 0:
+            time.sleep(delay)
+
+    def _load_robots(self, value: str) -> RobotFileParser | None:
+        parsed = urlparse(value)
+        origin = f"{parsed.scheme}://{parsed.netloc}"
+        if origin in self._robots:
+            return self._robots[origin]
+        robots_url = urljoin(origin + "/", "robots.txt")
+        try:
+            self._wait_slot(robots_url)
+            response = self.session.get(robots_url, timeout=self.timeout)
+            if response.status_code == 404:
+                parser = RobotFileParser()
+                parser.parse([])
+            else:
+                response.raise_for_status()
+                parser = RobotFileParser(robots_url)
+                parser.parse(response.text.splitlines())
+            self._robots[origin] = parser
+        except requests.RequestException as exc:
+            logger.warning("robots.txt 不可用：%s (%s)", robots_url, exc)
+            self._robots[origin] = None
+        return self._robots[origin]
+
+    def fetch(self, source: Source, value: str, *, check_robots: bool = True) -> requests.Response:
+        if not _domain_allowed(urlparse(value).hostname, source.allowed_domains):
+            raise FetchError(f"URL 超出来源域名白名单：{value}")
+        if check_robots and self.respect_robots:
+            parser = self._load_robots(value)
+            if parser is None and self.robots_fail_closed:
+                raise FetchError(f"robots.txt 不可用，按 fail-closed 跳过：{value}")
+            if parser is not None and not parser.can_fetch(self.user_agent, value):
+                raise FetchError(f"robots.txt 不允许抓取：{value}")
+        last_error: Exception | None = None
+        for attempt in range(self.retries + 1):
+            try:
+                self._wait_slot(value)
+                response = self.session.get(value, timeout=self.timeout, allow_redirects=True)
+                response.raise_for_status()
+                if not _domain_allowed(urlparse(response.url).hostname, source.allowed_domains):
+                    raise FetchError(f"重定向超出来源域名白名单：{response.url}")
+                declared = response.headers.get("content-length", "")
+                if declared.isdigit() and int(declared) > self.max_bytes:
+                    raise FetchError(f"响应超过大小限制：{declared}")
+                if len(response.content) > self.max_bytes:
+                    raise FetchError(f"响应超过大小限制：{len(response.content)}")
+                return response
+            except (requests.RequestException, FetchError) as exc:
+                last_error = exc
+                if attempt >= self.retries or isinstance(exc, FetchError):
+                    break
+                delay = min(8.0, 0.75 * (2**attempt))
+                logger.warning("抓取失败，%.2f 秒后重试：%s (%s)", delay, value, exc)
+                time.sleep(delay)
+        raise FetchError(f"抓取失败：{value}；{last_error}")
+
+
+def _feed_candidates(content: bytes, base_url: str) -> list[Candidate]:
+    parsed = feedparser.parse(content)
+    result: list[Candidate] = []
+    for entry in parsed.entries:
+        link = urljoin(base_url, str(entry.get("link", "")))
+        if not link:
+            continue
+        structured = entry.get("published_parsed") or entry.get("updated_parsed")
+        published = None
+        if structured:
+            try:
+                published = datetime.fromtimestamp(calendar.timegm(structured), tz=UTC)
+            except (TypeError, ValueError, OverflowError):
+                pass
+        result.append(Candidate(link, str(entry.get("title", "")), published))
+    return result
+
+
+def _sitemap_candidates(content: bytes, base_url: str) -> tuple[list[Candidate], list[str]]:
+    try:
+        root = ElementTree.fromstring(content)
+    except ElementTree.ParseError:
+        return [], []
+
+    def local(tag: str) -> str:
+        return tag.rsplit("}", 1)[-1].lower()
+
+    def child_text(node, names: set[str]) -> str:
+        for child in node.iter():
+            if local(child.tag) in names and child.text:
+                return child.text.strip()
+        return ""
+
+    is_index = local(root.tag) == "sitemapindex"
+    candidates: list[Candidate] = []
+    children: list[str] = []
+    for node in root:
+        location = child_text(node, {"loc"})
+        if not location:
+            continue
+        location = urljoin(base_url, location)
+        if is_index or local(node.tag) == "sitemap":
+            children.append(location)
+        else:
+            candidates.append(Candidate(location, published_hint=parse_datetime(child_text(node, {"lastmod"}))))
+    return candidates, children
+
+
+def _page_candidates(html: str, base_url: str) -> tuple[list[Candidate], list[str]]:
+    soup = BeautifulSoup(html, "html.parser")
+    feeds: list[str] = []
+    for link in soup.find_all("link", href=True):
+        rel = " ".join(link.get("rel", [])).lower()
+        content_type = str(link.get("type", "")).lower()
+        if "alternate" in rel and ("rss" in content_type or "atom" in content_type):
+            feeds.append(urljoin(base_url, link["href"]))
+    result: list[Candidate] = []
+    for anchor in soup.find_all("a", href=True):
+        url = urljoin(base_url, str(anchor["href"]))
+        title = " ".join(anchor.get_text(" ", strip=True).split())
+        published = None
+        parent = anchor.parent
+        if parent is not None:
+            time_tag = parent.find("time")
+            if time_tag is not None:
+                published = parse_datetime(time_tag.get("datetime") or time_tag.get_text(" ", strip=True))
+        result.append(Candidate(url, title, published))
+    return result, list(dict.fromkeys(feeds))
+
+
+def discover(source: Source, fetcher: Fetcher) -> list[Candidate]:
+    response = fetcher.fetch(source, source.url)
+    content_type = response.headers.get("content-type", "").lower()
+    if source.method == "rss" or "rss" in content_type or "atom" in content_type:
+        return _feed_candidates(response.content, response.url)
+    if source.method == "sitemap" or "sitemap" in response.url.lower():
+        candidates, children = _sitemap_candidates(response.content, response.url)
+        for child_url in children[:5]:
+            if not _domain_allowed(urlparse(child_url).hostname, source.allowed_domains):
+                continue
+            try:
+                child = fetcher.fetch(source, child_url)
+                nested, _ = _sitemap_candidates(child.content, child.url)
+                candidates.extend(nested)
+            except FetchError as exc:
+                logger.warning("子 sitemap 失败：%s", exc)
+        return candidates
+    links, feed_urls = _page_candidates(response.text, response.url)
+    if source.use_discovered_feed:
+        for feed_url in feed_urls[:1]:
+            if not _domain_allowed(urlparse(feed_url).hostname, source.allowed_domains):
+                continue
+            try:
+                feed = fetcher.fetch(source, feed_url)
+                links = _feed_candidates(feed.content, feed.url) + links
+            except FetchError as exc:
+                logger.warning("自动发现 feed 失败：%s", exc)
+    return links
+
+
+def _json_ld_metadata(soup: BeautifulSoup) -> tuple[str, str]:
+    queue: list[object] = []
+    for script in soup.find_all("script", attrs={"type": "application/ld+json"}):
+        try:
+            value = json.loads(script.string or script.get_text() or "")
+            queue.extend(value if isinstance(value, list) else [value])
+        except (json.JSONDecodeError, TypeError):
+            continue
+    while queue:
+        item = queue.pop(0)
+        if not isinstance(item, dict):
+            continue
+        graph = item.get("@graph")
+        if isinstance(graph, list):
+            queue.extend(graph)
+        title = item.get("headline") or item.get("name") or ""
+        date = item.get("datePublished") or item.get("dateModified") or ""
+        if title or date:
+            return str(title), str(date)
+    return "", ""
+
+
+def _extract_article(response: requests.Response, candidate: Candidate) -> tuple[str, str, datetime | None, str]:
+    html = response.text
+    soup = BeautifulSoup(html, "html.parser")
+    json_title, json_date = _json_ld_metadata(soup)
+    title = ""
+    published = candidate.published_hint
+    canonical = response.url
+    canonical_tag = soup.find("link", rel=lambda value: value and "canonical" in value)
+    if canonical_tag and canonical_tag.get("href"):
+        canonical = urljoin(response.url, str(canonical_tag["href"]))
+    if published is None:
+        for meta in soup.find_all("meta"):
+            key = str(meta.get("property") or meta.get("name") or meta.get("itemprop") or "").lower()
+            if key in DATE_META_KEYS:
+                published = parse_datetime(meta.get("content"))
+                if published:
+                    break
+    if published is None:
+        published = parse_datetime(json_date)
+    text = ""
+    try:
+        text = trafilatura.extract(
+            html,
+            url=response.url,
+            include_comments=False,
+            include_tables=False,
+            favor_precision=True,
+            output_format="txt",
+        ) or ""
+        metadata = trafilatura.extract_metadata(html, default_url=response.url)
+        if metadata is not None:
+            title = getattr(metadata, "title", "") or ""
+            if published is None:
+                published = parse_datetime(getattr(metadata, "date", "") or "")
+            canonical = getattr(metadata, "url", "") or canonical
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("trafilatura 解析失败：%s", exc)
+    if not title:
+        title_meta = soup.find("meta", property="og:title")
+        title = (
+            str(title_meta.get("content", "")) if title_meta else ""
+        ) or json_title or (soup.title.get_text(" ", strip=True) if soup.title else "") or candidate.title_hint
+    if not text:
+        for node in soup(["script", "style", "noscript", "nav", "footer", "aside", "svg"]):
+            node.decompose()
+        main = soup.find("article") or soup.find("main") or soup.body
+        text = main.get_text("\n", strip=True) if main else ""
+    if published is None:
+        match = re.search(r"/(20\d{2})/(0?[1-9]|1[0-2])/(0?[1-9]|[12]\d|3[01])(?:/|$)", response.url)
+        if match:
+            try:
+                published = datetime(*(int(value) for value in match.groups()), tzinfo=UTC)
+            except ValueError:
+                pass
+    title = " ".join(title.split()).strip()
+    text = "\n".join(line.strip() for line in text.splitlines() if line.strip()).strip()
+    return title, text, published, canonical
+
+
+def crawl_source(
+    source: Source,
+    fetcher: Fetcher,
+    start: datetime,
+    end: datetime,
+    existing_urls: set[str],
+    max_items: int | None = None,
+) -> tuple[CrawlStats, list[Article]]:
+    stats = CrawlStats(source.id)
+    try:
+        raw_candidates = discover(source, fetcher)
+    except Exception as exc:  # noqa: BLE001
+        stats.errors.append(f"入口发现失败：{exc}")
+        return stats, []
+    limit = min(source.max_candidates, max_items) if max_items else source.max_candidates
+    candidates: list[Candidate] = []
+    seen: set[str] = set()
+    entry = canonicalize_url(source.url)
+    for candidate in raw_candidates:
+        url = canonicalize_url(candidate.url)
+        if not url or url == entry or url in seen or not url_allowed(source, url):
+            continue
+        seen.add(url)
+        if candidate.published_hint and not (start <= candidate.published_hint < end):
+            continue
+        candidates.append(Candidate(url, candidate.title_hint, candidate.published_hint))
+        if len(candidates) >= limit:
+            break
+    stats.discovered = len(candidates)
+    result: list[Article] = []
+    for candidate in candidates:
+        if candidate.url in existing_urls:
+            stats.existing += 1
+            continue
+        try:
+            response = fetcher.fetch(source, candidate.url)
+            content_type = response.headers.get("content-type", "").lower()
+            if content_type and "html" not in content_type:
+                stats.empty_text += 1
+                continue
+            title, text, published, canonical = _extract_article(response, candidate)
+            canonical = canonicalize_url(canonical or response.url)
+            if not url_allowed(source, canonical):
+                canonical = canonicalize_url(response.url)
+            if published is None:
+                stats.missing_time += 1
+                continue
+            published = published.astimezone(UTC)
+            if not (start <= published < end):
+                stats.outside_window += 1
+                continue
+            if len(title) < 4 or len(text) < 180:
+                stats.empty_text += 1
+                continue
+            result.append(
+                Article(
+                    source_id=source.id,
+                    url=canonical,
+                    title=title,
+                    published_at=published.replace(microsecond=0).isoformat(),
+                    crawled_at=datetime.now(UTC).replace(microsecond=0).isoformat(),
+                    text=text,
+                    dedup_hash=hashlib.sha256(f"{title}\n{text}".encode("utf-8")).hexdigest(),
+                )
+            )
+            stats.accepted += 1
+        except Exception as exc:  # noqa: BLE001
+            if len(stats.errors) < 100:
+                stats.errors.append(f"{candidate.url}：{exc}")
+            logger.warning("%s 候选失败：%s", source.id, exc)
+    return stats, result
