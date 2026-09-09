@@ -55,6 +55,13 @@ SMTP_USER = os.getenv("SMTP_USER", "")
 SMTP_PASS = os.getenv("SMTP_PASS", "")
 RECIPIENT = os.getenv("RECIPIENT", "")
 MAIL_SUBJECT_PREFIX = os.getenv("MAIL_SUBJECT_PREFIX", "【AI安全治理摘报】")
+# 原文默认逐个发送；总数严格超过阈值时，即使关闭开关也强制打包。
+MAIL_ORIGINALS_ZIP = os.getenv("MAIL_ORIGINALS_ZIP", "false").strip().lower() not in {
+    "0", "false", "no", "",
+}
+MAIL_ORIGINALS_ZIP_THRESHOLD = int(os.getenv("MAIL_ORIGINALS_ZIP_THRESHOLD", "10"))
+if MAIL_ORIGINALS_ZIP_THRESHOLD < 0:
+    raise ValueError("MAIL_ORIGINALS_ZIP_THRESHOLD 必须为非负整数")
 
 # ---- 采集网络（H2）----
 # PROXY 作为旧配置名继续兼容；新配置支持主、备两条代理线路。
@@ -67,6 +74,7 @@ INGEST_CONNECTIVITY_TEST_URL = os.getenv(
 INGEST_CONNECTIVITY_CHECK = os.getenv(
     "INGEST_CONNECTIVITY_CHECK", "true"
 ).lower() not in {"0", "false", "no"}
+INGEST_WORKERS = max(1, int(os.getenv("INGEST_WORKERS", "6")))
 
 # ---- 出报 ----
 # 每日统计窗口在06:00截止，07:00执行生成与投递。

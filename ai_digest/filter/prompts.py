@@ -47,6 +47,7 @@ def build_user_message(item: dict[str, Any], excerpt_chars: int = 1500) -> str:
         "请判定以下信息：\n"
         f"- 标题：{item.get('title', '')}\n"
         f"- 来源：{item.get('source_name', '')}（{item.get('country', '')}）\n"
+        f"- 来源关注领域：{item.get('source_category_hint', '')}\n"
         f"- 时间：{item.get('published_at', '')}\n"
         f"- 链接：{item.get('url', '')}\n"
         f"- 内容摘录：\n{text}\n\n"

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import mimetypes
 import smtplib
 from email.message import EmailMessage
 from email.utils import formataddr
@@ -54,10 +55,18 @@ def send_email(subject: str, recipients: str | list[str] | None = None,
         if not attachment.exists():
             logger.warning("附件不存在，跳过：%s", attachment)
             continue
+        # 固定报告附件的标准类型，避免 Windows 注册表覆盖 MIME 映射。
+        content_type = {
+            ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            ".zip": "application/zip",
+        }.get(attachment.suffix.lower())
+        if content_type is None:
+            content_type = mimetypes.guess_type(attachment.name)[0] or "application/octet-stream"
+        maintype, subtype = content_type.split("/", 1)
         msg.add_attachment(
             attachment.read_bytes(),
-            maintype="application",
-            subtype="vnd.openxmlformats-officedocument.wordprocessingml.document",
+            maintype=maintype,
+            subtype=subtype,
             filename=attachment.name,
         )
 

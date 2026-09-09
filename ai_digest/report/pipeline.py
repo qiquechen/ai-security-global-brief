@@ -5,6 +5,7 @@ import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Iterable, Optional
+from zipfile import ZIP_DEFLATED, ZipFile
 
 from .. import config
 from ..deliver.emailer import send_email
@@ -28,7 +29,7 @@ def run_daily_pipeline(
     date_stamp: Optional[str] = None,
     window_text: Optional[str] = None,
 ) -> dict:
-    """执行完整出报流程并一次生成、投递两个类别的全部 Word 文件。"""
+    """生成双合集和原文，并按配置逐个或压缩投递原文。"""
     items = list(items)
     stats = {"candidates": len(items)}
 
@@ -56,6 +57,7 @@ def run_daily_pipeline(
 
     # 4) 双合集 + 每篇抓取原文 Word
     output_dir = Path(output_dir)
+    date_stamp = date_stamp or datetime.now().strftime("%Y%m%d")
     bundle = build_report_bundle(
         summarized,
         output_dir,
@@ -63,11 +65,12 @@ def run_daily_pipeline(
         date_stamp=date_stamp,
         window_text=window_text,
     )
-    attachments = []
+    collections = []
+    originals = []
     for key in ("media", "institution"):
         group = bundle[key]
-        attachments.append(group["collection"])
-        attachments.extend(group["originals"])
+        collections.append(group["collection"])
+        originals.extend(group["originals"])
         logger.info(
             "已生成%s：合集1份，原文%d份",
             "新闻媒体" if key == "media" else "机构信息",
@@ -83,6 +86,24 @@ def run_daily_pipeline(
 
     # 5) 发信（可选）
     if send:
+        zip_originals = bool(originals) and (
+            config.MAIL_ORIGINALS_ZIP
+            or len(originals) > config.MAIL_ORIGINALS_ZIP_THRESHOLD
+        )
+        attachments = list(collections)
+        if zip_originals:
+            archive_path = output_dir / f"原文_{date_stamp}.zip"
+            # 只归档本次生成的原文；保留分类目录以避免不同类别文件同名。
+            with ZipFile(archive_path, "w", compression=ZIP_DEFLATED) as archive:
+                for original in originals:
+                    archive.write(original, arcname=original.relative_to(output_dir).as_posix())
+            attachments.append(archive_path)
+            logger.info("原文%d份已打包：%s", len(originals), archive_path)
+        else:
+            attachments.extend(originals)
+        attachment_description = "两个合集"
+        if originals:
+            attachment_description += "及原文压缩包" if zip_originals else "及逐条原文"
         subject_date = date_text or datetime.now().strftime("%Y-%m-%d")
         subject = f"{config.MAIL_SUBJECT_PREFIX}{subject_date}"
         send_email(
@@ -90,7 +111,7 @@ def run_daily_pipeline(
             attachment_paths=attachments,
             text_body=(
                 f"今日摘报共 {len(summarized)} 条：新闻媒体 {stats['media']} 条，"
-                f"机构信息 {stats['institution']} 条。两个合集及逐条原文见附件。"
+                f"机构信息 {stats['institution']} 条。{attachment_description}见附件。"
             ),
         )
         stats["sent"] = True

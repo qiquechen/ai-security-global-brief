@@ -28,10 +28,11 @@ logger = logging.getLogger("ingest")
 
 TRACKING_KEYS = {
     "fbclid", "gclid", "mc_cid", "mc_eid", "ref", "source",
+    "at_medium", "at_campaign", "module", "pgtype",
 }
 DATE_META_KEYS = (
     "article:published_time", "datepublished", "date", "dc.date",
-    "dcterms.date", "parsely-pub-date", "pubdate", "article:modified_time",
+    "dcterms.date", "parsely-pub-date", "pubdate",
 )
 # 明显不属于文章网页的响应类型；其余类型交给 trafilatura/BeautifulSoup 尝试。
 _NON_HTML_TYPES = (
@@ -45,10 +46,53 @@ _UTILITY_PATH_MARKERS = (
     "/cdn-cgi/", "/my-account", "/login", "/sign-in", "/signin",
     "/register", "/cart", "/checkout", "/renew-membership",
 )
+_AI_TERMS = re.compile(
+    r"\b(?:ai|artificial intelligence|machine learning|large language models?|llms?|"
+    r"generative ai|deepfakes?|algorithms?|chatbots?|autonomous systems?)\b|"
+    r"人工智能|机器学习|大模型|深度伪造|算法|自动驾驶",
+    re.IGNORECASE,
+)
+_GOVERNANCE_TERMS = re.compile(
+    r"\b(?:security|safety|risks?|regulat(?:ion|or|ory)|governance|policy|laws?|"
+    r"privacy|surveillance|cyber|military|defen[cs]e|weapons?|export controls?|"
+    r"semiconductors?|chips?|compute|copyright|disinformation|elections?|bias|"
+    r"ethics?|standards?|evaluations?|critical infrastructure)\b|"
+    r"安全|风险|监管|治理|政策|法律|隐私|网络|国防|武器|出口管制|芯片|算力|"
+    r"版权|虚假信息|选举|偏见|伦理|标准|测评|关键基础设施",
+    re.IGNORECASE,
+)
 
 
 class FetchError(RuntimeError):
     """可记录、可隔离的来源抓取错误。"""
+
+    def __init__(self, message: str, *, status_code: int | None = None) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+
+
+class RequestCoordinator:
+    """在并行来源间共享域名限速与 robots 缓存。"""
+
+    def __init__(self) -> None:
+        self.robots: dict[str, RobotFileParser | None] = {}
+        self.slots: dict[str, float] = {}
+        self.route_index = 0
+        self.lock = threading.Lock()
+
+
+def candidate_relevance_score(title: str, url: str) -> int:
+    """用于排列抓取顺序的轻量相关度；只排序，不删除候选。"""
+    value = f"{title} {urlparse(url).path.replace('-', ' ')}"
+    ai = bool(_AI_TERMS.search(value))
+    governance = bool(_GOVERNANCE_TERMS.search(value))
+    if ai and governance:
+        return 6
+    if ai:
+        return 4
+    if governance:
+        return 2
+    return 0
 
 
 def canonicalize_url(value: str) -> str:
@@ -106,7 +150,9 @@ def url_allowed(source: Source, value: str) -> bool:
         return False
     if not _domain_allowed(parsed.hostname, source.allowed_domains):
         return False
-    if parsed.query and canonicalize_url(value) != canonicalize_url(source.url):
+    # 带业务参数的列表/搜索页通常不是稳定文章地址；仅跟踪参数可被规范化后放行。
+    canonical = canonicalize_url(value)
+    if urlparse(canonical).query and canonical != canonicalize_url(source.url):
         return False
     path = parsed.path or "/"
     normalized_path = path.rstrip("/") or "/"
@@ -183,7 +229,8 @@ def load_sources(path: Path) -> list[Source]:
 class Fetcher:
     """带代理、域名限制、robots、限速、重试和大小限制的客户端。"""
 
-    def __init__(self) -> None:
+    def __init__(self, coordinator: RequestCoordinator | None = None) -> None:
+        self.coordinator = coordinator or RequestCoordinator()
         self.session = requests.Session()
         # 只采用项目显式配置的线路，避免系统代理悄悄改变抓取路径。
         self.session.trust_env = False
@@ -215,17 +262,14 @@ class Fetcher:
                 seen_routes.add(proxy)
         if not self._routes:
             self._routes.append(("直连", ""))
-        self._route_index = 0
-        self._apply_route(0)
+        self._route_index = min(self.coordinator.route_index, len(self._routes) - 1)
+        self._apply_route(self._route_index)
         self.timeout = float(os.getenv("INGEST_TIMEOUT", "25"))
         self.max_bytes = int(os.getenv("INGEST_MAX_RESPONSE_BYTES", str(4 * 1024 * 1024)))
         self.retries = max(0, int(os.getenv("INGEST_RETRIES", "2")))
         self.interval = max(0.0, float(os.getenv("INGEST_REQUEST_INTERVAL", "0.3")))
         self.respect_robots = os.getenv("INGEST_RESPECT_ROBOTS", "true").lower() not in {"0", "false", "no"}
         self.robots_fail_closed = os.getenv("INGEST_ROBOTS_FAIL_CLOSED", "false").lower() not in {"0", "false", "no"}
-        self._robots: dict[str, RobotFileParser | None] = {}
-        self._slots: dict[str, float] = {}
-        self._lock = threading.Lock()
 
     @property
     def active_route_name(self) -> str:
@@ -245,6 +289,8 @@ class Fetcher:
             return False
         previous = self.active_route_name
         self._apply_route(next_index)
+        with self.coordinator.lock:
+            self.coordinator.route_index = max(self.coordinator.route_index, next_index)
         logger.warning("网络线路故障：%s → %s", previous, self.active_route_name)
         return True
 
@@ -285,6 +331,8 @@ class Fetcher:
                     allow_redirects=True,
                 )
                 if response.status_code < 500:
+                    with self.coordinator.lock:
+                        self.coordinator.route_index = index
                     logger.info("网络连通性正常：%s", name)
                     return name
                 errors.append(f"{name}=HTTP {response.status_code}")
@@ -306,9 +354,9 @@ class Fetcher:
         parsed = urlparse(value)
         origin = f"{parsed.scheme}://{parsed.netloc}"
         now = time.monotonic()
-        with self._lock:
-            scheduled = max(now, self._slots.get(origin, 0.0))
-            self._slots[origin] = scheduled + self.interval
+        with self.coordinator.lock:
+            scheduled = max(now, self.coordinator.slots.get(origin, 0.0))
+            self.coordinator.slots[origin] = scheduled + self.interval
         delay = scheduled - now
         if delay > 0:
             time.sleep(delay)
@@ -316,8 +364,9 @@ class Fetcher:
     def _load_robots(self, value: str) -> RobotFileParser | None:
         parsed = urlparse(value)
         origin = f"{parsed.scheme}://{parsed.netloc}"
-        if origin in self._robots:
-            return self._robots[origin]
+        with self.coordinator.lock:
+            if origin in self.coordinator.robots:
+                return self.coordinator.robots[origin]
         robots_url = urljoin(origin + "/", "robots.txt")
         try:
             self._wait_slot(robots_url)
@@ -329,11 +378,13 @@ class Fetcher:
                 response.raise_for_status()
                 parser = RobotFileParser(robots_url)
                 parser.parse(response.text.splitlines())
-            self._robots[origin] = parser
+            with self.coordinator.lock:
+                self.coordinator.robots[origin] = parser
         except requests.RequestException as exc:
             logger.warning("robots.txt 不可用：%s (%s)", robots_url, exc)
-            self._robots[origin] = None
-        return self._robots[origin]
+            with self.coordinator.lock:
+                self.coordinator.robots[origin] = None
+        return self.coordinator.robots[origin]
 
     def fetch(self, source: Source, value: str, *, check_robots: bool = True) -> requests.Response:
         if not _domain_allowed(urlparse(value).hostname, source.allowed_domains):
@@ -351,6 +402,14 @@ class Fetcher:
                 response = self._get_with_failover(
                     value, timeout=self.timeout, allow_redirects=True
                 )
+                # 少数站点把目录式文章 URL 的末尾斜杠作为必需路由（如 CBS）。
+                parsed_value = urlparse(value)
+                if response.status_code == 406 and not parsed_value.path.endswith("/"):
+                    slash_url = urlunparse(parsed_value._replace(path=parsed_value.path + "/"))
+                    self._wait_slot(slash_url)
+                    response = self._get_with_failover(
+                        slash_url, timeout=self.timeout, allow_redirects=True
+                    )
                 response.raise_for_status()
                 if not _domain_allowed(urlparse(response.url).hostname, source.allowed_domains):
                     raise FetchError(f"重定向超出来源域名白名单：{response.url}")
@@ -369,7 +428,8 @@ class Fetcher:
                 delay = min(8.0, 0.75 * (2**attempt))
                 logger.warning("抓取失败，%.2f 秒后重试：%s (%s)", delay, value, exc)
                 time.sleep(delay)
-        raise FetchError(f"抓取失败：{value}；{last_error}")
+        status = getattr(getattr(last_error, "response", None), "status_code", None)
+        raise FetchError(f"抓取失败：{value}；{last_error}", status_code=status)
 
 
 def _feed_candidates(content: bytes, base_url: str) -> list[Candidate]:
@@ -386,7 +446,11 @@ def _feed_candidates(content: bytes, base_url: str) -> list[Candidate]:
                 published = datetime.fromtimestamp(calendar.timegm(structured), tz=UTC)
             except (TypeError, ValueError, OverflowError):
                 pass
-        result.append(Candidate(link, str(entry.get("title", "")), published))
+        title = str(entry.get("title", ""))
+        result.append(Candidate(
+            link, title, published,
+            relevance_score=candidate_relevance_score(title, link) + 2,
+        ))
     return result
 
 
@@ -416,7 +480,11 @@ def _sitemap_candidates(content: bytes, base_url: str) -> tuple[list[Candidate],
         if is_index or local(node.tag) == "sitemap":
             children.append(location)
         else:
-            candidates.append(Candidate(location, published_hint=parse_datetime(child_text(node, {"lastmod"}))))
+            candidates.append(Candidate(
+                location,
+                published_hint=parse_datetime(child_text(node, {"lastmod"})),
+                relevance_score=candidate_relevance_score("", location),
+            ))
     return candidates, children
 
 
@@ -441,12 +509,20 @@ def _page_candidates(html: str, base_url: str) -> tuple[list[Candidate], list[st
         if not title and anchor.find("time") is None:
             continue
         published = None
-        parent = anchor.parent
+        parent = anchor.find_parent(["article", "li", "section", "div"])
         if parent is not None:
             time_tag = parent.find("time")
             if time_tag is not None:
                 published = parse_datetime(time_tag.get("datetime") or time_tag.get_text(" ", strip=True))
-        result.append(Candidate(url, title, published))
+        structure_score = 3 if anchor.find_parent("article") else 0
+        if anchor.find_parent(["h1", "h2", "h3"]):
+            structure_score = max(structure_score, 2)
+        if published:
+            structure_score += 1
+        result.append(Candidate(
+            url, title, published,
+            relevance_score=candidate_relevance_score(title, url) + structure_score,
+        ))
     return result, list(dict.fromkeys(feeds))
 
 
@@ -488,6 +564,7 @@ def _json_ld_metadata(soup: BeautifulSoup) -> tuple[str, str]:
             queue.extend(value if isinstance(value, list) else [value])
         except (json.JSONDecodeError, TypeError):
             continue
+    best: tuple[int, str, str] = (-1, "", "")
     while queue:
         item = queue.pop(0)
         if not isinstance(item, dict):
@@ -495,11 +572,19 @@ def _json_ld_metadata(soup: BeautifulSoup) -> tuple[str, str]:
         graph = item.get("@graph")
         if isinstance(graph, list):
             queue.extend(graph)
+        for key in ("mainEntity", "mainEntityOfPage"):
+            nested = item.get(key)
+            if isinstance(nested, dict):
+                queue.append(nested)
         title = item.get("headline") or item.get("name") or ""
-        date = item.get("datePublished") or item.get("dateModified") or ""
-        if title or date:
-            return str(title), str(date)
-    return "", ""
+        date = item.get("datePublished") or ""
+        raw_types = item.get("@type", "")
+        types = raw_types if isinstance(raw_types, list) else [raw_types]
+        is_article = any("article" in str(value).lower() for value in types)
+        score = (4 if is_article else 0) + (2 if date else 0) + (1 if title else 0)
+        if score > best[0]:
+            best = (score, str(title), str(date))
+    return best[1], best[2]
 
 
 def _extract_article(response: requests.Response, candidate: Candidate) -> tuple[str, str, datetime | None, str]:
@@ -507,7 +592,7 @@ def _extract_article(response: requests.Response, candidate: Candidate) -> tuple
     soup = BeautifulSoup(html, "html.parser")
     json_title, json_date = _json_ld_metadata(soup)
     title = ""
-    published = candidate.published_hint
+    published = None
     canonical = response.url
     canonical_tag = soup.find("link", rel=lambda value: value and "canonical" in value)
     if canonical_tag and canonical_tag.get("href"):
@@ -543,12 +628,14 @@ def _extract_article(response: requests.Response, candidate: Candidate) -> tuple
         title_meta = soup.find("meta", property="og:title")
         title = (
             str(title_meta.get("content", "")) if title_meta else ""
-        ) or json_title or (soup.title.get_text(" ", strip=True) if soup.title else "") or candidate.title_hint
+        ) or json_title or candidate.title_hint or (soup.title.get_text(" ", strip=True) if soup.title else "")
     if not text:
         for node in soup(["script", "style", "noscript", "nav", "footer", "aside", "svg"]):
             node.decompose()
         main = soup.find("article") or soup.find("main") or soup.body
         text = main.get_text("\n", strip=True) if main else ""
+    if published is None:
+        published = candidate.published_hint
     if published is None:
         match = re.search(r"/(20\d{2})/(0?[1-9]|1[0-2])/(0?[1-9]|[12]\d|3[01])(?:/|$)", response.url)
         if match:
@@ -576,27 +663,47 @@ def crawl_source(
         stats.errors.append(f"入口发现失败：{exc}")
         return stats, []
     limit = min(source.max_candidates, max_items) if max_items else source.max_candidates
-    candidates: list[Candidate] = []
-    seen: set[str] = set()
+    by_url: dict[str, Candidate] = {}
     entry = canonicalize_url(source.url)
     for candidate in raw_candidates:
         url = canonicalize_url(candidate.url)
-        if not url or url == entry or url in seen or not url_allowed(source, url):
+        if not url or url == entry or not url_allowed(source, url):
             continue
-        seen.add(url)
         if candidate.published_hint and not (start <= candidate.published_hint < end):
             continue
-        candidates.append(Candidate(url, candidate.title_hint, candidate.published_hint))
-        if len(candidates) >= limit:
-            break
-    stats.discovered = len(candidates)
-    result: list[Article] = []
-    for candidate in candidates:
-        if candidate.url in existing_urls:
+        if url in existing_urls:
             stats.existing += 1
             continue
+        normalized = Candidate(
+            url, candidate.title_hint, candidate.published_hint,
+            candidate.relevance_score or candidate_relevance_score(candidate.title_hint, url),
+        )
+        previous = by_url.get(url)
+        if previous is None or (
+            normalized.relevance_score,
+            bool(normalized.published_hint),
+            len(normalized.title_hint),
+        ) > (
+            previous.relevance_score,
+            bool(previous.published_hint),
+            len(previous.title_hint),
+        ):
+            by_url[url] = normalized
+    candidates = sorted(
+        by_url.values(),
+        key=lambda item: (
+            item.relevance_score,
+            item.published_hint.timestamp() if item.published_hint else 0,
+        ),
+        reverse=True,
+    )[:limit]
+    stats.discovered = len(candidates)
+    result: list[Article] = []
+    denied_in_a_row = 0
+    for candidate in candidates:
         try:
             response = fetcher.fetch(source, candidate.url)
+            denied_in_a_row = 0
             if _is_non_html(response.headers.get("content-type", "")):
                 stats.empty_text += 1
                 continue
@@ -604,6 +711,9 @@ def crawl_source(
             canonical = canonicalize_url(canonical or response.url)
             if not url_allowed(source, canonical):
                 canonical = canonicalize_url(response.url)
+            if canonical in existing_urls:
+                stats.existing += 1
+                continue
             if published is None:
                 stats.missing_time += 1
                 continue
@@ -622,12 +732,22 @@ def crawl_source(
                     published_at=published.replace(microsecond=0).isoformat(),
                     crawled_at=datetime.now(UTC).replace(microsecond=0).isoformat(),
                     text=text,
-                    dedup_hash=hashlib.sha256(f"{title}\n{text}".encode("utf-8")).hexdigest(),
+                    dedup_hash=hashlib.sha256(
+                        " ".join(text.lower().split()).encode("utf-8")
+                    ).hexdigest(),
                 )
             )
             stats.accepted += 1
+            denied_in_a_row = 0
         except Exception as exc:  # noqa: BLE001
             if len(stats.errors) < 100:
                 stats.errors.append(f"{candidate.url}：{exc}")
             logger.warning("%s 候选失败：%s", source.id, exc)
+            if isinstance(exc, FetchError) and exc.status_code in {401, 403}:
+                denied_in_a_row += 1
+                if denied_in_a_row >= 3:
+                    stats.errors.append("连续3个候选被拒绝，提前停止该来源")
+                    break
+            else:
+                denied_in_a_row = 0
     return stats, result

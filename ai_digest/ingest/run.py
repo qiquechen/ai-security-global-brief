@@ -5,12 +5,24 @@ import argparse
 import json
 import logging
 import sys
+import time
+from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import closing
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from .. import config, db
-from .crawler import FetchError, Fetcher, canonicalize_url, crawl_source, load_sources, parse_datetime
+from .crawler import (
+    FetchError,
+    Fetcher,
+    RequestCoordinator,
+    canonicalize_url,
+    crawl_source,
+    load_sources,
+    parse_datetime,
+)
+from .models import CrawlStats, Source
 
 logger = logging.getLogger("ingest.run")
 
@@ -28,10 +40,80 @@ def configure_logging(verbose: bool = False) -> None:
         logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 
-def _existing_urls(source_id: str) -> set[str]:
+def _existing_urls_by_source(source_ids: set[str]) -> dict[str, set[str]]:
+    """一次查询加载所有来源的已入库 URL，避免每个来源重复打开数据库。"""
+    result: dict[str, set[str]] = defaultdict(set)
+    if not source_ids:
+        return result
+    placeholders = ",".join("?" for _ in source_ids)
     with closing(db.connect()) as conn:
-        rows = conn.execute("SELECT url FROM articles WHERE source_id = ?", (source_id,)).fetchall()
-    return {canonicalize_url(row["url"]) for row in rows}
+        rows = conn.execute(
+            f"SELECT source_id, url FROM articles WHERE source_id IN ({placeholders})",
+            tuple(sorted(source_ids)),
+        ).fetchall()
+    for row in rows:
+        result[row["source_id"]].add(canonicalize_url(row["url"]))
+    return result
+
+
+def _crawl_one(
+    source: Source,
+    coordinator: RequestCoordinator,
+    start: datetime,
+    end: datetime,
+    existing_urls: set[str],
+    max_items: int | None,
+) -> tuple[CrawlStats, list]:
+    # requests.Session 不保证线程安全，因此每个任务独立会话，只共享限速状态。
+    started = time.monotonic()
+    with Fetcher(coordinator) as fetcher:
+        stats, articles = crawl_source(
+            source, fetcher, start, end, existing_urls, max_items=max_items
+        )
+    stats.elapsed_seconds = time.monotonic() - started
+    return stats, articles
+
+
+def crawl_sources(
+    sources: list[Source],
+    start: datetime,
+    end: datetime,
+    existing_by_source: dict[str, set[str]],
+    *,
+    max_items: int | None = None,
+    workers: int = 1,
+    coordinator: RequestCoordinator | None = None,
+) -> list[tuple[CrawlStats, list]]:
+    """并行抓取不同来源；共享按域名限速，结果由调用方串行入库。"""
+    coordinator = coordinator or RequestCoordinator()
+    worker_count = max(1, min(workers, len(sources)))
+    if worker_count == 1:
+        return [
+            _crawl_one(
+                source, coordinator, start, end,
+                existing_by_source.get(source.id, set()), max_items,
+            )
+            for source in sources
+        ]
+    results: list[tuple[CrawlStats, list]] = []
+    with ThreadPoolExecutor(max_workers=worker_count, thread_name_prefix="ingest") as pool:
+        futures = {
+            pool.submit(
+                _crawl_one, source, coordinator, start, end,
+                existing_by_source.get(source.id, set()), max_items,
+            ): source
+            for source in sources
+        }
+        for future in as_completed(futures):
+            source = futures[future]
+            try:
+                results.append(future.result())
+            except Exception as exc:  # noqa: BLE001
+                logger.exception("source=%s 未处理异常", source.id)
+                stats = CrawlStats(source.id)
+                stats.errors.append(f"来源任务异常：{exc}")
+                results.append((stats, []))
+    return results
 
 
 def _export_jsonl(path: Path, start: datetime, end: datetime) -> int:
@@ -57,6 +139,10 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--days", type=float, default=2.0, help="采集最近 N 天，默认2天")
     parser.add_argument("--source", action="append", help="只抓指定来源 id，可重复传入")
     parser.add_argument("--max-per-source", type=int, help="本次每来源最大候选数")
+    parser.add_argument(
+        "--workers", type=int, default=config.INGEST_WORKERS,
+        help=f"不同来源并行数，默认 {config.INGEST_WORKERS}",
+    )
     parser.add_argument("--export", type=Path, help="把本次时间窗内文章导出为 JSONL")
     parser.add_argument("--at", help="测试用当前时间，ISO 8601")
     parser.add_argument("--validate-only", action="store_true", help="只验证来源配置")
@@ -76,6 +162,9 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     if args.max_per_source is not None and args.max_per_source <= 0:
         logger.error("--max-per-source 必须大于0")
+        return 2
+    if args.workers <= 0:
+        logger.error("--workers 必须大于0")
         return 2
     sources_path = config.ROOT / "config" / "sources.json"
     try:
@@ -111,7 +200,8 @@ def main(argv: list[str] | None = None) -> int:
     logger.info("采集窗口 UTC：[%s, %s)", start.isoformat(), end.isoformat())
     db.init_db()
     all_stats = []
-    with Fetcher() as fetcher:
+    coordinator = RequestCoordinator()
+    with Fetcher(coordinator) as fetcher:
         if config.INGEST_CONNECTIVITY_CHECK or args.check_connectivity:
             try:
                 fetcher.check_connectivity()
@@ -120,45 +210,49 @@ def main(argv: list[str] | None = None) -> int:
                 return 1
         if args.check_connectivity:
             return 0
-        for source in selected:
-            existing = _existing_urls(source.id)
-            stats, articles = crawl_source(
-                source, fetcher, start, end, existing, max_items=args.max_per_source
-            )
-            with closing(db.connect()) as conn:
-                with conn:
-                    for article in articles:
-                        inserted = db.insert_article(
-                            conn,
-                            source_id=article.source_id,
-                            url=article.url,
-                            title=article.title,
-                            published_at=article.published_at,
-                            crawled_at=article.crawled_at,
-                            text=article.text,
-                            dedup_hash=article.dedup_hash,
-                        )
-                        if inserted:
-                            stats.inserted += 1
-                        else:
-                            stats.existing += 1
-            all_stats.append(stats)
-            logger.info(
-                "source=%s status=%s discovered=%d accepted=%d inserted=%d existing=%d "
-                "outside=%d missing_time=%d empty=%d errors=%d",
-                stats.source_id, stats.status, stats.discovered, stats.accepted,
-                stats.inserted, stats.existing, stats.outside_window,
-                stats.missing_time, stats.empty_text, len(stats.errors),
-            )
-            for message in stats.errors[:10]:
-                logger.warning("source=%s %s", stats.source_id, message)
+    started = time.monotonic()
+    existing_by_source = _existing_urls_by_source({source.id for source in selected})
+    logger.info("开始并行采集：workers=%d", min(args.workers, len(selected)))
+    crawled = crawl_sources(
+        selected, start, end, existing_by_source,
+        max_items=args.max_per_source, workers=args.workers, coordinator=coordinator,
+    )
+    for stats, articles in crawled:
+        with closing(db.connect()) as conn:
+            with conn:
+                for article in articles:
+                    inserted = db.insert_article(
+                        conn,
+                        source_id=article.source_id,
+                        url=article.url,
+                        title=article.title,
+                        published_at=article.published_at,
+                        crawled_at=article.crawled_at,
+                        text=article.text,
+                        dedup_hash=article.dedup_hash,
+                    )
+                    if inserted:
+                        stats.inserted += 1
+                    else:
+                        stats.existing += 1
+        all_stats.append(stats)
+        logger.info(
+            "source=%s status=%s discovered=%d accepted=%d inserted=%d existing=%d "
+            "outside=%d missing_time=%d empty=%d errors=%d duration=%.1fs",
+            stats.source_id, stats.status, stats.discovered, stats.accepted,
+            stats.inserted, stats.existing, stats.outside_window,
+            stats.missing_time, stats.empty_text, len(stats.errors), stats.elapsed_seconds,
+        )
+        for message in stats.errors[:10]:
+            logger.warning("source=%s %s", stats.source_id, message)
     if args.export:
         output = args.export if args.export.is_absolute() else config.ROOT / args.export
         count = _export_jsonl(output, start, end)
         logger.info("已导出%d条：%s", count, output)
     inserted = sum(item.inserted for item in all_stats)
     errors = sum(len(item.errors) for item in all_stats)
-    logger.info("采集完成：新增=%d 错误=%d", inserted, errors)
+    elapsed = time.monotonic() - started
+    logger.info("采集完成：新增=%d 错误=%d 耗时=%.1f秒", inserted, errors, elapsed)
     return 0 if any(item.status != "failed" for item in all_stats) else 1
 
 

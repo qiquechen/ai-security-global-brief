@@ -32,6 +32,7 @@ class Candidate:
     url: str
     title_hint: str = ""
     published_hint: datetime | None = None
+    relevance_score: int = 0
 
 
 @dataclass(frozen=True)
@@ -48,6 +49,7 @@ class Article:
 @dataclass
 class CrawlStats:
     source_id: str
+    elapsed_seconds: float = 0.0
     discovered: int = 0
     accepted: int = 0
     inserted: int = 0

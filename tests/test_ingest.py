@@ -1,5 +1,6 @@
 import json
 import tempfile
+import threading
 import unittest
 from datetime import UTC, datetime
 from pathlib import Path
@@ -9,7 +10,17 @@ from zipfile import ZipFile
 import requests
 
 from ai_digest import config, db
-from ai_digest.ingest.crawler import Fetcher, canonicalize_url, load_sources, parse_datetime, url_allowed
+from ai_digest.ingest.crawler import (
+    Fetcher,
+    _extract_article,
+    canonicalize_url,
+    crawl_source,
+    load_sources,
+    parse_datetime,
+    url_allowed,
+)
+from ai_digest.ingest.models import Candidate, CrawlStats
+from ai_digest.ingest.run import crawl_sources
 from ai_digest.report.docx_builder import (
     build_report_bundle,
     collection_group,
@@ -24,12 +35,21 @@ from scripts.run_daily import daily_window
 class IngestTests(unittest.TestCase):
     def test_fused_source_config(self):
         sources = load_sources(config.ROOT / "config" / "sources.json")
-        self.assertEqual(47, len(sources))
-        self.assertEqual(43, sum(source.enabled for source in sources))
-        self.assertEqual(7, sum(source.type == "media" for source in sources))
+        self.assertEqual(53, len(sources))
+        self.assertEqual(42, sum(source.enabled for source in sources))
+        self.assertEqual(13, sum(source.type == "media" for source in sources))
+        self.assertTrue(
+            {"ars_ai", "bbc_tech", "cbs_tech", "scmp_ai", "japan_times_ai", "independent_ai"}
+            <= {source.id for source in sources if source.enabled}
+        )
         aisi = next(source for source in sources if source.id == "aisi_uk")
         self.assertTrue(url_allowed(aisi, "https://www.aisi.gov.uk/research/example"))
         self.assertFalse(url_allowed(aisi, "https://example.com/research/example"))
+        bbc = next(source for source in sources if source.id == "bbc_tech")
+        self.assertTrue(url_allowed(
+            bbc,
+            "https://www.bbc.co.uk/news/articles/example?at_medium=RSS&at_campaign=rss",
+        ))
 
     def test_url_and_time_normalization(self):
         self.assertEqual(
@@ -67,6 +87,15 @@ class IngestTests(unittest.TestCase):
                         text="body " * 100,
                         dedup_hash="hash",
                     )
+                    same_content_at_new_url = db.insert_article(
+                        conn,
+                        source_id="another_source",
+                        url="https://example.org/copied-story",
+                        title="Copied story",
+                        published_at="2026-09-08T01:00:00+00:00",
+                        text="body " * 100,
+                        dedup_hash="hash",
+                    )
                     row = conn.execute("SELECT * FROM articles").fetchone()
                     conn.commit()
                 finally:
@@ -77,12 +106,86 @@ class IngestTests(unittest.TestCase):
                 )
                 self.assertTrue(first)
                 self.assertFalse(second)
+                self.assertFalse(same_content_at_new_url)
                 self.assertEqual("aisi_uk", row["source_id"])
                 self.assertGreater(len(row["text"]), 180)
                 self.assertEqual("gov", loaded[0]["source_type"])
                 self.assertGreaterEqual(loaded[0]["source_priority"], 1)
         finally:
             config.DB_PATH = original
+
+    def test_candidate_priority_skips_existing_before_limit(self):
+        source = next(
+            source for source in load_sources(config.ROOT / "config" / "sources.json")
+            if source.id == "ars_ai"
+        )
+        existing = "https://arstechnica.com/ai/2026/09/existing"
+        relevant = "https://arstechnica.com/security/2026/09/ai-safety-law"
+        irrelevant = "https://arstechnica.com/ai/2026/09/new-phone"
+        candidates = [
+            Candidate(existing, "AI safety", relevance_score=20),
+            Candidate(irrelevant, "New phone", relevance_score=1),
+            Candidate(relevant, "AI safety regulation", relevance_score=10),
+        ]
+
+        class FakeFetcher:
+            def __init__(self):
+                self.fetched = []
+
+            def fetch(self, _source, url):
+                self.fetched.append(url)
+                return type("Response", (), {
+                    "headers": {"content-type": "text/html"}, "url": url, "text": "",
+                })()
+
+        fetcher = FakeFetcher()
+        published = datetime(2026, 9, 8, 1, tzinfo=UTC)
+        with patch("ai_digest.ingest.crawler.discover", return_value=candidates), patch(
+            "ai_digest.ingest.crawler._extract_article",
+            return_value=("AI safety regulation", "body " * 100, published, relevant),
+        ):
+            stats, articles = crawl_source(
+                source, fetcher, datetime(2026, 9, 8, tzinfo=UTC),
+                datetime(2026, 9, 9, tzinfo=UTC), {existing}, max_items=1,
+            )
+        self.assertEqual([relevant], fetcher.fetched)
+        self.assertEqual(1, stats.existing)
+        self.assertEqual(1, len(articles))
+
+    def test_article_published_time_beats_modified_and_feed_time(self):
+        html = """
+        <html><head>
+          <meta property="og:title" content="AI safety policy">
+          <meta property="article:modified_time" content="2026-09-09T03:00:00Z">
+          <script type="application/ld+json">
+          {"@type":"NewsArticle","headline":"AI safety policy",
+           "datePublished":"2026-09-07T02:00:00Z","dateModified":"2026-09-09T03:00:00Z"}
+          </script>
+        </head><body><article>Article body about AI safety policy.</article></body></html>
+        """
+        response = type("Response", (), {
+            "text": html, "url": "https://example.com/story",
+        })()
+        _title, _text, published, _canonical = _extract_article(
+            response,
+            Candidate("https://example.com/story", published_hint=datetime(2026, 9, 8, tzinfo=UTC)),
+        )
+        self.assertEqual(datetime(2026, 9, 7, 2, tzinfo=UTC), published)
+
+    def test_sources_can_crawl_concurrently(self):
+        sources = load_sources(config.ROOT / "config" / "sources.json")[:2]
+        barrier = threading.Barrier(2, timeout=2)
+
+        def fake_crawl(source, *_args):
+            barrier.wait()
+            return CrawlStats(source.id), []
+
+        with patch("ai_digest.ingest.run._crawl_one", side_effect=fake_crawl):
+            results = crawl_sources(
+                sources, datetime(2026, 9, 8, tzinfo=UTC),
+                datetime(2026, 9, 9, tzinfo=UTC), {}, workers=2,
+            )
+        self.assertEqual({source.id for source in sources}, {item[0].source_id for item in results})
 
     def test_source_json_remains_h1_compatible(self):
         raw = json.loads((config.ROOT / "config" / "sources.json").read_text(encoding="utf-8"))
@@ -163,16 +266,63 @@ class IngestTests(unittest.TestCase):
             {"source_type": "gov", "source_name": "机构", "title": "Two", "text": "body",
              "published_at": "2026-09-09T02:00:00+00:00", "url": "https://example.com/two"},
         ]
-        with tempfile.TemporaryDirectory() as directory, patch(
-            "ai_digest.report.pipeline.send_email"
-        ) as mocked_send:
-            stats = run_daily_pipeline(
-                FakeClient(), items, directory, send=True, date_stamp="20260909"
-            )
-            mocked_send.assert_called_once()
-            self.assertEqual(4, len(mocked_send.call_args.kwargs["attachment_paths"]))
-            self.assertEqual(1, stats["media"])
-            self.assertEqual(1, stats["institution"])
+        cases = [
+            # 开关、阈值、是否发信、是否有原文、预期压缩。
+            (False, 10, True, True, False),
+            (False, 2, True, True, False),  # 等于阈值不强制压缩。
+            (False, 1, True, True, True),  # 两类原文合并计数。
+            (True, 10, True, True, True),
+            (False, 0, True, True, True),
+            (True, 0, True, False, False),
+            (True, 0, False, True, False),
+        ]
+        for enabled, threshold, send, has_originals, zipped in cases:
+            with self.subTest(case=(enabled, threshold, send, has_originals)), \
+                    tempfile.TemporaryDirectory() as directory, \
+                    patch("ai_digest.report.pipeline.send_email") as mocked_send, \
+                    patch.object(config, "MAIL_ORIGINALS_ZIP", enabled), \
+                    patch.object(config, "MAIL_ORIGINALS_ZIP_THRESHOLD", threshold):
+                stale_path = Path(directory) / "历史原文.docx"
+                stale_path.write_bytes(b"old report")
+                archive_path = Path(directory) / "原文_20260909.zip"
+                if zipped:
+                    with ZipFile(archive_path, "w") as archive:
+                        archive.writestr("旧原文.docx", b"stale archive entry")
+                stats = run_daily_pipeline(
+                    FakeClient(), items if has_originals else [], directory,
+                    send=send, date_stamp="20260909",
+                )
+                self.assertEqual(int(has_originals), stats["media"])
+                self.assertEqual(int(has_originals), stats["institution"])
+                self.assertEqual(zipped, archive_path.exists())
+                if not send:
+                    mocked_send.assert_not_called()
+                    continue
+                mocked_send.assert_called_once()
+                attachments = mocked_send.call_args.kwargs["attachment_paths"]
+                self.assertEqual(
+                    2 + (1 if zipped else 2 if has_originals else 0), len(attachments)
+                )
+                self.assertEqual(stats["collections"], [str(p) for p in attachments[:2]])
+                self.assertTrue(all(p.is_file() for p in attachments))
+                if zipped:
+                    self.assertEqual(archive_path, attachments[-1])
+                    self.assertIn("原文压缩包", mocked_send.call_args.kwargs["text_body"])
+                    originals = [
+                        p for p in Path(directory).rglob("*.docx")
+                        if str(p) not in stats["collections"] and p != stale_path
+                    ]
+                    with ZipFile(archive_path) as archive:
+                        self.assertEqual(
+                            {p.relative_to(directory).as_posix() for p in originals},
+                            set(archive.namelist()),
+                        )
+                        self.assertIsNone(archive.testzip())
+                        for original in originals:
+                            self.assertEqual(
+                                original.read_bytes(),
+                                archive.read(original.relative_to(directory).as_posix()),
+                            )
 
     def test_fetcher_switches_to_backup_on_connection_failure(self):
         class FakeResponse:

@@ -733,7 +733,8 @@
       "method": "page",
       "url": "https://www.nbr.org/",
       "homepage": "https://www.nbr.org/",
-      "enabled": true,
+      "enabled": false,
+      "disabled_reason": "2026-09-09 多轮实测文章页持续返回 403",
       "category_hint": "",
       "priority": 55,
       "allowed_domains": [
@@ -832,7 +833,8 @@
       "method": "rss",
       "url": "https://www.americanprogress.org/feed/",
       "homepage": "https://www.americanprogress.org/",
-      "enabled": true,
+      "enabled": false,
+      "disabled_reason": "2026-09-09 多轮实测 Feed 返回 403",
       "category_hint": "",
       "priority": 55,
       "allowed_domains": [
@@ -898,7 +900,8 @@
       "method": "page",
       "url": "https://www.fpri.org/",
       "homepage": "https://www.fpri.org/",
-      "enabled": true,
+      "enabled": false,
+      "disabled_reason": "2026-09-09 实测入口与文章连续返回 403",
       "category_hint": "",
       "priority": 55,
       "allowed_domains": [
@@ -1063,7 +1066,8 @@
       "method": "rss",
       "url": "https://thediplomat.com/feed/",
       "homepage": "https://thediplomat.com/",
-      "enabled": true,
+      "enabled": false,
+      "disabled_reason": "2026-09-09 实测文章页连续返回 403",
       "category_hint": "",
       "priority": 55,
       "allowed_domains": [
@@ -1096,7 +1100,8 @@
       "method": "page",
       "url": "https://nationalinterest.org/",
       "homepage": "https://nationalinterest.org/",
-      "enabled": true,
+      "enabled": false,
+      "disabled_reason": "2026-09-09 实测入口返回 403",
       "category_hint": "",
       "priority": 55,
       "allowed_domains": [
@@ -1218,7 +1223,8 @@
       "method": "page",
       "url": "https://www.oecd.org/en/topics/policy-issues/artificial-intelligence.html",
       "homepage": "https://www.oecd.org/",
-      "enabled": true,
+      "enabled": false,
+      "disabled_reason": "2026-09-09 实测入口返回 403，保留配置待替换接口",
       "category_hint": "国际人工智能政策与治理",
       "priority": 95,
       "allowed_domains": [
@@ -1355,7 +1361,8 @@
       "method": "page",
       "url": "https://www.industry.gov.au/science-technology-and-innovation/technology/artificial-intelligence/ai-safety-institute",
       "homepage": "https://www.industry.gov.au/",
-      "enabled": true,
+      "enabled": false,
+      "disabled_reason": "2026-09-09 多轮实测连接或读取超时，暂停避免拖慢整次采集",
       "category_hint": "人工智能能力、风险与危害监测",
       "priority": 96,
       "allowed_domains": [
@@ -1395,6 +1402,160 @@
         "/technology/artificialintelligenceai/",
         "/help/",
         "/info/"
+      ],
+      "max_candidates": 30,
+      "feed": ""
+    },
+    {
+      "id": "ars_ai",
+      "name": "Ars Technica人工智能栏目",
+      "name_en": "Ars Technica - Artificial Intelligence",
+      "country": "美国",
+      "type": "media",
+      "method": "rss",
+      "url": "https://arstechnica.com/ai/feed/",
+      "homepage": "https://arstechnica.com/ai/",
+      "enabled": true,
+      "category_hint": "人工智能安全、政策、技术风险与社会影响",
+      "priority": 76,
+      "allowed_domains": [
+        "arstechnica.com"
+      ],
+      "include_patterns": [
+        "/ai/",
+        "/security/",
+        "/tech-policy/",
+        "/information-technology/"
+      ],
+      "exclude_patterns": [
+        "/civis/",
+        "/subscribe/"
+      ],
+      "max_candidates": 30,
+      "feed": "https://arstechnica.com/ai/feed/"
+    },
+    {
+      "id": "bbc_tech",
+      "name": "BBC科技",
+      "name_en": "BBC News - Technology",
+      "country": "英国",
+      "type": "media",
+      "method": "rss",
+      "url": "https://feeds.bbci.co.uk/news/technology/rss.xml",
+      "homepage": "https://www.bbc.com/news/technology",
+      "enabled": true,
+      "category_hint": "人工智能监管、安全风险与社会影响报道",
+      "priority": 78,
+      "allowed_domains": [
+        "bbci.co.uk",
+        "bbc.co.uk",
+        "bbc.com"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/av/",
+        "/sounds/"
+      ],
+      "max_candidates": 30,
+      "feed": "https://feeds.bbci.co.uk/news/technology/rss.xml"
+    },
+    {
+      "id": "cbs_tech",
+      "name": "CBS News科技",
+      "name_en": "CBS News - Technology",
+      "country": "美国",
+      "type": "media",
+      "method": "rss",
+      "url": "https://www.cbsnews.com/latest/rss/technology",
+      "homepage": "https://www.cbsnews.com/technology/",
+      "enabled": true,
+      "category_hint": "人工智能政策、安全、就业与社会影响报道",
+      "priority": 72,
+      "allowed_domains": [
+        "cbsnews.com"
+      ],
+      "include_patterns": [
+        "/news/"
+      ],
+      "exclude_patterns": [
+        "/video/"
+      ],
+      "max_candidates": 30,
+      "feed": "https://www.cbsnews.com/latest/rss/technology"
+    },
+    {
+      "id": "scmp_ai",
+      "name": "南华早报人工智能专题",
+      "name_en": "South China Morning Post - Artificial Intelligence",
+      "country": "中国香港",
+      "type": "media",
+      "method": "rss",
+      "url": "https://www.scmp.com/rss/324707/feed",
+      "homepage": "https://www.scmp.com/topics/artificial-intelligence",
+      "enabled": true,
+      "category_hint": "人工智能治理、供应链、安全风险与国际动态",
+      "priority": 76,
+      "allowed_domains": [
+        "scmp.com"
+      ],
+      "include_patterns": [
+        "/article/"
+      ],
+      "exclude_patterns": [
+        "/video/"
+      ],
+      "max_candidates": 35,
+      "feed": "https://www.scmp.com/rss/324707/feed"
+    },
+    {
+      "id": "japan_times_ai",
+      "name": "日本时报人工智能专题",
+      "name_en": "The Japan Times - Artificial Intelligence",
+      "country": "日本",
+      "type": "media",
+      "method": "page",
+      "url": "https://www.japantimes.co.jp/tag/artificial-intelligence/",
+      "homepage": "https://www.japantimes.co.jp/tag/artificial-intelligence/",
+      "enabled": true,
+      "category_hint": "日本及亚太人工智能政策、安全与社会影响",
+      "priority": 72,
+      "allowed_domains": [
+        "japantimes.co.jp"
+      ],
+      "include_patterns": [
+        "/news/",
+        "/business/",
+        "/commentary/"
+      ],
+      "exclude_patterns": [
+        "/podcast/"
+      ],
+      "max_candidates": 30,
+      "feed": ""
+    },
+    {
+      "id": "independent_ai",
+      "name": "独立报人工智能专题",
+      "name_en": "The Independent - Artificial Intelligence",
+      "country": "英国",
+      "type": "media",
+      "method": "page",
+      "url": "https://www.independent.co.uk/topic/artificial-intelligence",
+      "homepage": "https://www.independent.co.uk/",
+      "enabled": true,
+      "category_hint": "人工智能监管、安全、网络风险与社会影响",
+      "priority": 74,
+      "allowed_domains": [
+        "independent.co.uk"
+      ],
+      "include_patterns": [
+        "/news/",
+        "/tech/"
+      ],
+      "exclude_patterns": [
+        "/video/",
+        "/service/",
+        "/author/"
       ],
       "max_candidates": 30,
       "feed": ""

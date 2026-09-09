@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS articles (
 );
 CREATE INDEX IF NOT EXISTS idx_articles_published ON articles(published_at);
 CREATE INDEX IF NOT EXISTS idx_articles_source   ON articles(source_id);
+CREATE INDEX IF NOT EXISTS idx_articles_dedup    ON articles(dedup_hash);
 """
 
 
@@ -67,6 +68,7 @@ def _source_map() -> dict[str, dict]:
                 "country": s.get("country", ""),
                 "type": s.get("type", ""),
                 "priority": int(s.get("priority", 50)),
+                "category_hint": s.get("category_hint", ""),
             }
     return out
 
@@ -76,10 +78,21 @@ def insert_article(db: sqlite3.Connection, *, source_id: str, url: str, title: s
                    crawled_at: Optional[str] = None, dedup_hash: Optional[str] = None) -> bool:
     """插入一篇文章；URL 重复时忽略（返回 False）。"""
     crawled_at = crawled_at or datetime.now().isoformat(timespec="seconds")
+    # URL 去重之外再按正文指纹去重，避免转载链接或规范链接变化造成重复入库。
     cur = db.execute(
-        "INSERT OR IGNORE INTO articles (source_id, url, title, published_at, crawled_at, text, dedup_hash) "
-        "VALUES (?,?,?,?,?,?,?)",
-        (source_id, url, title, published_at, crawled_at, text, dedup_hash),
+        """
+        INSERT OR IGNORE INTO articles
+            (source_id, url, title, published_at, crawled_at, text, dedup_hash)
+        SELECT ?,?,?,?,?,?,?
+        WHERE NOT EXISTS (
+            SELECT 1 FROM articles
+            WHERE url = ? OR (? IS NOT NULL AND ? != '' AND dedup_hash = ?)
+        )
+        """,
+        (
+            source_id, url, title, published_at, crawled_at, text, dedup_hash,
+            url, dedup_hash, dedup_hash, dedup_hash,
+        ),
     )
     return cur.rowcount > 0
 
@@ -109,6 +122,7 @@ def load_articles_between(start: datetime, end: datetime) -> list[dict]:
         d["country"] = meta.get("country", "")
         d["source_type"] = meta.get("type", "")
         d["source_priority"] = meta.get("priority", 50)
+        d["source_category_hint"] = meta.get("category_hint", "")
         out.append(d)
     return out
 
