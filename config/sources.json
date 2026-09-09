@@ -88,20 +88,16 @@
       "name": "GMU National Security Institute",
       "country": "US",
       "type": "gov_affiliated",
-      "method": "page",
+      "method": "sitemap",
       "homepage": "https://nationalsecurity.gmu.edu/",
-      "url": "https://nationalsecurity.gmu.edu/category/commentary/",
+      "url": "https://nationalsecurity.gmu.edu/sitemap_index.xml",
       "feed": "",
       "enabled": true,
       "category_hint": "国家安全与科技政策",
       "allowed_domains": [
         "nationalsecurity.gmu.edu"
       ],
-      "include_patterns": [
-        "/category/commentary/",
-        "/2026/",
-        "/2025/"
-      ],
+      "include_patterns": [],
       "exclude_patterns": [
         "/author/",
         "/tag/",
@@ -366,21 +362,16 @@
       "name": "美国企业研究所",
       "country": "US",
       "type": "thinktank",
-      "method": "page",
+      "method": "rss",
       "homepage": "https://ctse.aei.org/",
-      "url": "https://ctse.aei.org/technology/",
-      "feed": "",
+      "url": "https://ctse.aei.org/feed/",
+      "feed": "https://ctse.aei.org/feed/",
       "enabled": true,
       "category_hint": "政策法规与产业治理",
       "allowed_domains": [
         "aei.org"
       ],
-      "include_patterns": [
-        "/technology/",
-        "/artificial-intelligence/",
-        "/research/",
-        "/articles/"
-      ],
+      "include_patterns": [],
       "exclude_patterns": [
         "/profile/",
         "/events/"
@@ -1036,8 +1027,8 @@
       "name_en": "Foreign Policy",
       "country": "美国",
       "type": "media",
-      "method": "page",
-      "url": "https://foreignpolicy.com/",
+      "method": "rss",
+      "url": "https://foreignpolicy.com/feed/",
       "homepage": "https://foreignpolicy.com/",
       "enabled": true,
       "category_hint": "",
@@ -1046,6 +1037,7 @@
         "foreignpolicy.com"
       ],
       "include_patterns": [],
+      "feed": "https://foreignpolicy.com/feed/",
       "exclude_patterns": [
         "/contact",
         "/search",
@@ -1060,8 +1052,7 @@
         "/support",
         "/donate"
       ],
-      "max_candidates": 15,
-      "feed": ""
+      "max_candidates": 15
     },
     {
       "id": "the_diplomat",
@@ -1069,8 +1060,8 @@
       "name_en": "The Diplomat",
       "country": "美国",
       "type": "media",
-      "method": "page",
-      "url": "https://thediplomat.com/",
+      "method": "rss",
+      "url": "https://thediplomat.com/feed/",
       "homepage": "https://thediplomat.com/",
       "enabled": true,
       "category_hint": "",
@@ -1094,7 +1085,7 @@
         "/donate"
       ],
       "max_candidates": 15,
-      "feed": ""
+      "feed": "https://thediplomat.com/feed/"
     },
     {
       "id": "national_interest",

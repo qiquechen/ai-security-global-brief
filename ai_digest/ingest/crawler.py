@@ -33,6 +33,18 @@ DATE_META_KEYS = (
     "article:published_time", "datepublished", "date", "dc.date",
     "dcterms.date", "parsely-pub-date", "pubdate", "article:modified_time",
 )
+# 明显不属于文章网页的响应类型；其余类型交给 trafilatura/BeautifulSoup 尝试。
+_NON_HTML_TYPES = (
+    "image/", "video/", "audio/", "font/",
+    "application/pdf", "application/zip", "application/gzip",
+    "application/x-rar-compressed", "application/x-7z-compressed",
+    "application/msword", "application/vnd", "application/octet-stream",
+)
+# 站点导航/账号类页面，不是文章也不应消耗候选名额（常见于 WP/CDN 站）。
+_UTILITY_PATH_MARKERS = (
+    "/cdn-cgi/", "/my-account", "/login", "/sign-in", "/signin",
+    "/register", "/cart", "/checkout", "/renew-membership",
+)
 
 
 class FetchError(RuntimeError):
@@ -79,6 +91,13 @@ def parse_datetime(value: str | None) -> datetime | None:
 def _domain_allowed(hostname: str | None, domains: tuple[str, ...]) -> bool:
     host = (hostname or "").lower().rstrip(".")
     return any(host == item or host.endswith("." + item) for item in domains)
+
+
+def _is_non_html(content_type: str) -> bool:
+    content_type = (content_type or "").split(";")[0].strip().lower()
+    return bool(content_type) and (
+        content_type.startswith(_NON_HTML_TYPES) or content_type == "application/json"
+    )
 
 
 def url_allowed(source: Source, value: str) -> bool:
@@ -169,7 +188,9 @@ class Fetcher:
         # 只采用项目显式配置的线路，避免系统代理悄悄改变抓取路径。
         self.session.trust_env = False
         self.user_agent = os.getenv(
-            "INGEST_USER_AGENT", "AISafetyDigest/1.0 (+replace-with-contact)"
+            "INGEST_USER_AGENT",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
         )
         self.session.headers.update(
             {
@@ -182,6 +203,10 @@ class Fetcher:
             ("主线路", config.PROXY_PRIMARY),
             ("备用线路", config.PROXY_BACKUP),
         ]
+        # 旧配置名 PROXY 作为最后一级兜底：即使 PROXY_PRIMARY 已配置，只要它
+        # 与主备都不相同仍会保留，避免 .env 迁移时主线路失效导致整次采集失败。
+        legacy = os.getenv("PROXY", "").strip()
+        routes.append(("旧PROXY", legacy))
         self._routes = []
         seen_routes: set[str] = set()
         for name, proxy in routes:
@@ -197,7 +222,7 @@ class Fetcher:
         self.retries = max(0, int(os.getenv("INGEST_RETRIES", "2")))
         self.interval = max(0.0, float(os.getenv("INGEST_REQUEST_INTERVAL", "0.3")))
         self.respect_robots = os.getenv("INGEST_RESPECT_ROBOTS", "true").lower() not in {"0", "false", "no"}
-        self.robots_fail_closed = os.getenv("INGEST_ROBOTS_FAIL_CLOSED", "true").lower() not in {"0", "false", "no"}
+        self.robots_fail_closed = os.getenv("INGEST_ROBOTS_FAIL_CLOSED", "false").lower() not in {"0", "false", "no"}
         self._robots: dict[str, RobotFileParser | None] = {}
         self._slots: dict[str, float] = {}
         self._lock = threading.Lock()
@@ -226,6 +251,15 @@ class Fetcher:
     @staticmethod
     def _is_connectivity_error(exc: Exception) -> bool:
         return isinstance(exc, (requests.ConnectionError, requests.Timeout))
+
+    @staticmethod
+    def _is_retryable(exc: Exception) -> bool:
+        """4xx 是站点/风控给出的确定性结果，重试没有意义且会拖慢整体采集；
+        只对连接、代理、超时、429 与 5xx 做退避重试。"""
+        if isinstance(exc, (requests.ConnectionError, requests.Timeout)):
+            return True
+        status = getattr(getattr(exc, "response", None), "status_code", None)
+        return status is not None and (status >= 500 or status == 429)
 
     def _get_with_failover(self, value: str, **kwargs) -> requests.Response:
         """执行一次 GET；仅连接、代理或超时故障触发主备切换。"""
@@ -328,7 +362,9 @@ class Fetcher:
                 return response
             except (requests.RequestException, FetchError) as exc:
                 last_error = exc
-                if attempt >= self.retries or isinstance(exc, FetchError):
+                if isinstance(exc, FetchError) or not self._is_retryable(exc):
+                    break
+                if attempt >= self.retries:
                     break
                 delay = min(8.0, 0.75 * (2**attempt))
                 logger.warning("抓取失败，%.2f 秒后重试：%s (%s)", delay, value, exc)
@@ -395,7 +431,15 @@ def _page_candidates(html: str, base_url: str) -> tuple[list[Candidate], list[st
     result: list[Candidate] = []
     for anchor in soup.find_all("a", href=True):
         url = urljoin(base_url, str(anchor["href"]))
+        parsed_url = urlparse(url)
+        if parsed_url.scheme not in {"http", "https"}:
+            continue
+        path_lower = (parsed_url.path or "/").lower()
+        if any(marker in path_lower for marker in _UTILITY_PATH_MARKERS):
+            continue
         title = " ".join(anchor.get_text(" ", strip=True).split())
+        if not title and anchor.find("time") is None:
+            continue
         published = None
         parent = anchor.parent
         if parent is not None:
@@ -553,8 +597,7 @@ def crawl_source(
             continue
         try:
             response = fetcher.fetch(source, candidate.url)
-            content_type = response.headers.get("content-type", "").lower()
-            if content_type and "html" not in content_type:
+            if _is_non_html(response.headers.get("content-type", "")):
                 stats.empty_text += 1
                 continue
             title, text, published, canonical = _extract_article(response, candidate)
