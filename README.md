@@ -92,6 +92,31 @@ ZIP 保存在当次输出目录的 `原文_日期.zip`，保留原文分类目�
 DeepSeek密钥优先读取环境变量或 `.env`；未配置有效值时，也支持读取项目同级的
 `deepseek_API.txt`。密钥文件不得放入压缩包或Git仓库。
 
+筛选和摘要共用 `DEEPSEEK_CHAT_MODEL=deepseek-v4-flash`，通过
+`DEEPSEEK_FILTER_THINKING_MODE=disabled` 在筛选阶段关闭思考，
+`DEEPSEEK_SUMMARY_THINKING_MODE=enabled` 在摘要生成和超长摘要二次压缩时开启思考。
+两个阶段可以分别设置为 `enabled` 或 `disabled`。
+`DEEPSEEK_THINKING_MODE` 仅作为未指定模式的通用客户端调用默认值，不覆盖阶段配置。
+已移除未被调用流程使用的 `DEEPSEEK_REASONER_MODEL`。模型名称与思考模式分别配置，
+不再依赖旧模型别名。开启思考时不发送 temperature 参数，详见
+[DeepSeek 思考模式文档](https://api-docs.deepseek.com/zh-cn/guides/thinking_mode/)。
+日志会记录请求模型、思考模式和服务端响应模型。修改 `.env` 后需重启运行进程；
+同名系统环境变量优先于 `.env`，部署时应同步检查。
+
+## 剔除记录与到期清理
+
+筛选明确返回 `in_scope=false` 时，系统在同一事务中删除数据库中的文章原文，
+并将规范化 URL、剔除理由和 UTC 时间写入 `rejected_articles` 表。
+后续筛选跳过该 URL，采集跨来源共用此排除集合，在下载正文前跳过已知 URL；
+新别名只有在解析到相同规范 URL 后才能识别。模型请求失败或判定格式无效时保留文章重试，
+不进入黑名单；收录后因数量配额未进入日报的文章也不进入黑名单。
+
+`REJECTION_RETENTION_DAYS=7` 控制保留天数（正整数）。每次采集及批量筛选启动时
+自动删除已满保留天数的记录，重复命中不延长有效期。程序停运期间不会后台清理，
+下次运行补做清理；到期 URL 可再次采集，但已删除的原文不会自动恢复。
+现有旧日志不会自动转成黑名单，下一次明确判定后开始记录。
+该机制不删除历史 Word 或已导出的 JSONL；重新导入的 URL 仍受有效期内黑名单拦截。
+
 ## 协作说明
 
 - H1（质量与交付）负责 `filter` / `summarize` / `report` / `deliver`；

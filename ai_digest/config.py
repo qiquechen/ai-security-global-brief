@@ -45,8 +45,10 @@ def _load_deepseek_key() -> str:
 
 DEEPSEEK_API_KEY = _load_deepseek_key()
 DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
-DEEPSEEK_CHAT_MODEL = os.getenv("DEEPSEEK_CHAT_MODEL", "deepseek-chat")
-DEEPSEEK_REASONER_MODEL = os.getenv("DEEPSEEK_REASONER_MODEL", "deepseek-reasoner")
+DEEPSEEK_CHAT_MODEL = os.getenv("DEEPSEEK_CHAT_MODEL", "deepseek-v4-flash")
+DEEPSEEK_THINKING_MODE = os.getenv("DEEPSEEK_THINKING_MODE", "disabled")
+DEEPSEEK_FILTER_THINKING_MODE = os.getenv("DEEPSEEK_FILTER_THINKING_MODE", "disabled")
+DEEPSEEK_SUMMARY_THINKING_MODE = os.getenv("DEEPSEEK_SUMMARY_THINKING_MODE", "enabled")
 
 # ---- SMTP ----
 SMTP_HOST = os.getenv("SMTP_HOST", "")
@@ -77,6 +79,9 @@ INGEST_CONNECTIVITY_CHECK = os.getenv(
 INGEST_WORKERS = max(1, int(os.getenv("INGEST_WORKERS", "6")))
 
 # ---- 出报 ----
+REJECTION_RETENTION_DAYS = int(os.getenv("REJECTION_RETENTION_DAYS", "7"))
+if REJECTION_RETENTION_DAYS <= 0:
+    raise ValueError("REJECTION_RETENTION_DAYS 必须为正整数")
 # 每日统计窗口在06:00截止，07:00执行生成与投递。
 REPORT_CUTOFF_HOUR = int(os.getenv("REPORT_CUTOFF_HOUR", os.getenv("REPORT_HOUR", "6")))
 REPORT_HOUR = REPORT_CUTOFF_HOUR  # 兼容旧调用方

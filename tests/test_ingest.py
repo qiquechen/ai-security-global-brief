@@ -33,6 +33,13 @@ from scripts.run_daily import daily_window
 
 
 class IngestTests(unittest.TestCase):
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        patcher = patch.object(config, "DB_PATH", Path(directory.name) / "test.db")
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_fused_source_config(self):
         sources = load_sources(config.ROOT / "config" / "sources.json")
         self.assertEqual(53, len(sources))
@@ -194,7 +201,7 @@ class IngestTests(unittest.TestCase):
 
     def test_summary_contract_has_chinese_title_and_plain_body(self):
         class FakeClient:
-            def chat_json(self, _system, _user):
+            def chat_json(self, _system, _user, **kwargs):
                 return {"zh_title": "人工智能安全评估", "summary": "机构发布了安全评估结果。"}
 
         item = summarize_article(FakeClient(), {"title": "AI safety evaluation"})
@@ -255,7 +262,7 @@ class IngestTests(unittest.TestCase):
 
     def test_pipeline_sends_all_outputs_once(self):
         class FakeClient:
-            def chat_json(self, system, _user):
+            def chat_json(self, system, _user, **kwargs):
                 if "筛选官" in system:
                     return {"in_scope": True, "category": "M1", "importance": "high", "reason": "测试"}
                 return {"zh_title": "中文标题", "summary": "客观摘要。"}

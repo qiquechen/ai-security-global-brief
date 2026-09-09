@@ -57,7 +57,9 @@ def build_user_message(item: dict[str, Any], excerpt_chars: int = 1500) -> str:
 
 def validate_decision(d: dict[str, Any]) -> dict[str, Any]:
     """规整并校验模型输出的判定结果。"""
-    in_scope = bool(d.get("in_scope"))
+    if type(d.get("in_scope")) is not bool:
+        raise ValueError("模型判定必须包含布尔类型的 in_scope")
+    in_scope = d["in_scope"]
     category = d.get("category")
     importance = d.get("importance")
     reason = str(d.get("reason") or "")[:80]

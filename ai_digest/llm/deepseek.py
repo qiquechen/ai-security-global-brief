@@ -32,6 +32,7 @@ class DeepSeekClient:
         chat_model: Optional[str] = None,
         timeout: float = 90.0,
         max_retries: int = 3,
+        thinking_mode: Optional[str] = None,
     ) -> None:
         if not api_key:
             api_key = config.DEEPSEEK_API_KEY
@@ -42,24 +43,37 @@ class DeepSeekClient:
         if not api_key or api_key == "sk-xxxx":
             raise LLMError("未配置 DEEPSEEK_API_KEY（请复制 .env.example 为 .env 并填入）")
 
+        self.thinking_mode = (
+            config.DEEPSEEK_THINKING_MODE if thinking_mode is None else thinking_mode
+        ).strip().lower()
+        if self.thinking_mode not in {"enabled", "disabled"}:
+            raise LLMError("DEEPSEEK_THINKING_MODE 必须为 enabled 或 disabled")
         self.chat_model = chat_model
         self.client = openai.OpenAI(api_key=api_key, base_url=base_url, timeout=timeout)
         self.max_retries = max_retries
 
     # ---------- 基础调用 ----------
     def chat_text(self, system: str, user: str, model: Optional[str] = None,
-                  temperature: float = 0.1) -> str:
+                  temperature: float = 0.1, *, thinking_mode: Optional[str] = None) -> str:
         model = model or self.chat_model
+        mode = self.thinking_mode if thinking_mode is None else thinking_mode.strip().lower()
+        if mode not in {"enabled", "disabled"}:
+            raise LLMError("thinking_mode 必须为 enabled 或 disabled")
         last_err: Optional[Exception] = None
         for attempt in range(1, self.max_retries + 1):
             try:
                 resp = self.client.chat.completions.create(
                     model=model,
-                    temperature=temperature,
+                    extra_body={"thinking": {"type": mode}},
+                    **({"temperature": temperature} if mode == "disabled" else {}),
                     messages=[
                         {"role": "system", "content": system},
                         {"role": "user", "content": user},
                     ],
+                )
+                logger.info(
+                    "DeepSeek 请求模型=%s，思考模式=%s，响应模型=%s",
+                    model, mode, resp.model,
                 )
                 content = resp.choices[0].message.content or ""
                 return content.strip()
@@ -71,9 +85,10 @@ class DeepSeekClient:
         raise LLMError(f"DeepSeek 调用多次失败: {last_err}")
 
     def chat_json(self, system: str, user: str, model: Optional[str] = None,
-                  temperature: float = 0.0) -> dict[str, Any]:
+                  temperature: float = 0.0, *, thinking_mode: Optional[str] = None) -> dict[str, Any]:
         """请求模型只输出 JSON，并做健壮解析（剥离 ``` 包裹/首尾噪音）。"""
-        raw = self.chat_text(system, user, model=model, temperature=temperature)
+        raw = self.chat_text(system, user, model=model, temperature=temperature,
+                             thinking_mode=thinking_mode)
         return self._parse_json(raw)
 
     @staticmethod

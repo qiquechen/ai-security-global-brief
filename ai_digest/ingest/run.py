@@ -43,6 +43,9 @@ def configure_logging(verbose: bool = False) -> None:
 def _existing_urls_by_source(source_ids: set[str]) -> dict[str, set[str]]:
     """一次查询加载所有来源的已入库 URL，避免每个来源重复打开数据库。"""
     result: dict[str, set[str]] = defaultdict(set)
+    rejected = db.active_rejections()
+    for source_id in source_ids:
+        result[source_id].update(rejected)
     if not source_ids:
         return result
     placeholders = ",".join("?" for _ in source_ids)

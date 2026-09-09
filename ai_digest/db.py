@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 from contextlib import closing
 from datetime import UTC, datetime, timedelta
@@ -14,6 +15,8 @@ from pathlib import Path
 from typing import Iterable, Optional
 
 from . import config
+
+logger = logging.getLogger(__name__)
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS articles (
@@ -29,6 +32,12 @@ CREATE TABLE IF NOT EXISTS articles (
 CREATE INDEX IF NOT EXISTS idx_articles_published ON articles(published_at);
 CREATE INDEX IF NOT EXISTS idx_articles_source   ON articles(source_id);
 CREATE INDEX IF NOT EXISTS idx_articles_dedup    ON articles(dedup_hash);
+CREATE TABLE IF NOT EXISTS rejected_articles (
+    url TEXT PRIMARY KEY,
+    reason TEXT NOT NULL,
+    rejected_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_rejected_at ON rejected_articles(rejected_at);
 """
 
 
@@ -47,6 +56,37 @@ def init_db() -> None:
     with closing(_connect()) as connection:
         connection.executescript(SCHEMA)
         connection.commit()
+
+
+def rejection_key(url: str) -> str:
+    from .ingest.crawler import canonicalize_url
+    return canonicalize_url(url) if url else ""
+
+
+def active_rejections() -> set[str]:
+    """清理到期记录并返回跨来源共用的 URL 集合，按实际 UTC 时间计龄。"""
+    init_db()
+    cutoff = (datetime.now(UTC) - timedelta(days=config.REJECTION_RETENTION_DAYS)).isoformat()
+    with closing(_connect()) as connection, connection:
+        cleared = connection.execute(
+            "DELETE FROM rejected_articles WHERE rejected_at <= ?", (cutoff,)
+        ).rowcount
+        urls = {row[0] for row in connection.execute("SELECT url FROM rejected_articles")}
+        logger.info("剔除记录：到期清理=%d，有效=%d", cleared, len(urls))
+        return urls
+
+
+def reject_article(item: dict, reason: str) -> None:
+    """原子地记录剔除 URL 并删除原文；已有记录不因重复命中延长寿命。"""
+    key = rejection_key(item.get("url", ""))
+    if not key:
+        return
+    with closing(_connect()) as connection, connection:
+        connection.execute(
+            "INSERT OR IGNORE INTO rejected_articles(url, reason, rejected_at) VALUES (?, ?, ?)",
+            (key, reason[:500], datetime.now(UTC).isoformat()),
+        )
+        connection.execute("DELETE FROM articles WHERE url IN (?, ?)", (item["url"], key))
 
 
 def _source_map() -> dict[str, dict]:
@@ -78,6 +118,12 @@ def insert_article(db: sqlite3.Connection, *, source_id: str, url: str, title: s
                    crawled_at: Optional[str] = None, dedup_hash: Optional[str] = None) -> bool:
     """插入一篇文章；URL 重复时忽略（返回 False）。"""
     crawled_at = crawled_at or datetime.now().isoformat(timespec="seconds")
+    cutoff = (datetime.now(UTC) - timedelta(days=config.REJECTION_RETENTION_DAYS)).isoformat()
+    if db.execute(
+        "SELECT 1 FROM rejected_articles WHERE url = ? AND rejected_at > ?",
+        (rejection_key(url), cutoff),
+    ).fetchone():
+        return False
     # URL 去重之外再按正文指纹去重，避免转载链接或规范链接变化造成重复入库。
     cur = db.execute(
         """
