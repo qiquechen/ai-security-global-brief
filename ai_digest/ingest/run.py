@@ -10,7 +10,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from .. import config, db
-from .crawler import Fetcher, canonicalize_url, crawl_source, load_sources, parse_datetime
+from .crawler import FetchError, Fetcher, canonicalize_url, crawl_source, load_sources, parse_datetime
 
 logger = logging.getLogger("ingest.run")
 
@@ -60,6 +60,10 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--export", type=Path, help="把本次时间窗内文章导出为 JSONL")
     parser.add_argument("--at", help="测试用当前时间，ISO 8601")
     parser.add_argument("--validate-only", action="store_true", help="只验证来源配置")
+    parser.add_argument(
+        "--check-connectivity", action="store_true",
+        help="验证来源配置并只检测主备网络线路",
+    )
     parser.add_argument("--verbose", action="store_true")
     return parser
 
@@ -93,7 +97,7 @@ def main(argv: list[str] | None = None) -> int:
         "来源配置有效：共%d项，启用%d项，本次%d项",
         len(sources), sum(source.enabled for source in sources), len(selected),
     )
-    if args.validate_only:
+    if args.validate_only and not args.check_connectivity:
         return 0
     if not selected:
         logger.error("没有可执行的启用来源")
@@ -108,6 +112,14 @@ def main(argv: list[str] | None = None) -> int:
     db.init_db()
     all_stats = []
     with Fetcher() as fetcher:
+        if config.INGEST_CONNECTIVITY_CHECK or args.check_connectivity:
+            try:
+                fetcher.check_connectivity()
+            except FetchError as exc:
+                logger.error("网络连通性检测失败：%s", exc)
+                return 1
+        if args.check_connectivity:
+            return 0
         for source in selected:
             existing = _existing_urls(source.id)
             stats, articles = crawl_source(

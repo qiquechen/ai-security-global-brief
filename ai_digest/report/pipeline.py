@@ -10,7 +10,7 @@ from .. import config
 from ..deliver.emailer import send_email
 from ..filter.classify import classify_items
 from ..llm.deepseek import DeepSeekClient
-from ..report.docx_builder import build_report_docx
+from ..report.docx_builder import build_report_bundle
 from ..report.rank import rank_items
 from ..summarize.run import summarize_article
 
@@ -20,13 +20,15 @@ logger = logging.getLogger("pipeline")
 def run_daily_pipeline(
     client: DeepSeekClient,
     items: Iterable[dict],
-    docx_path: str | Path,
+    output_dir: str | Path,
     *,
     send: bool = False,
     max_items: int = 20,
     date_text: Optional[str] = None,
+    date_stamp: Optional[str] = None,
+    window_text: Optional[str] = None,
 ) -> dict:
-    """执行完整出报流程，返回统计信息。items 需含 title/url/published_at/text/source_name/country。"""
+    """执行完整出报流程并一次生成、投递两个类别的全部 Word 文件。"""
     items = list(items)
     stats = {"candidates": len(items)}
 
@@ -52,19 +54,45 @@ def run_daily_pipeline(
     summarized = [summarize_article(client, it) for it in ranked]
     stats["summarized"] = len(summarized)
 
-    # 4) 公文 docx
-    docx_path = Path(docx_path)
-    docx_path.parent.mkdir(parents=True, exist_ok=True)
-    build_report_docx(summarized, docx_path,
-                      date_text=date_text or datetime.now().strftime("%Y年%m月%d日"))
-    logger.info("已生成：%s", docx_path)
+    # 4) 双合集 + 每篇抓取原文 Word
+    output_dir = Path(output_dir)
+    bundle = build_report_bundle(
+        summarized,
+        output_dir,
+        date_text=date_text or datetime.now().strftime("%Y年%m月%d日"),
+        date_stamp=date_stamp,
+        window_text=window_text,
+    )
+    attachments = []
+    for key in ("media", "institution"):
+        group = bundle[key]
+        attachments.append(group["collection"])
+        attachments.extend(group["originals"])
+        logger.info(
+            "已生成%s：合集1份，原文%d份",
+            "新闻媒体" if key == "media" else "机构信息",
+            group["count"],
+        )
+    stats["media"] = bundle["media"]["count"]
+    stats["institution"] = bundle["institution"]["count"]
+    stats["collections"] = [
+        str(bundle["media"]["collection"]),
+        str(bundle["institution"]["collection"]),
+    ]
+    stats["originals"] = sum(group["count"] for group in bundle.values())
 
     # 5) 发信（可选）
     if send:
         subject_date = date_text or datetime.now().strftime("%Y-%m-%d")
         subject = f"{config.MAIL_SUBJECT_PREFIX}{subject_date}"
-        send_email(subject, docx_path=docx_path,
-                   text_body=f"今日摘报共 {len(summarized)} 条，见附件。")
+        send_email(
+            subject,
+            attachment_paths=attachments,
+            text_body=(
+                f"今日摘报共 {len(summarized)} 条：新闻媒体 {stats['media']} 条，"
+                f"机构信息 {stats['institution']} 条。两个合集及逐条原文见附件。"
+            ),
+        )
         stats["sent"] = True
 
     return stats

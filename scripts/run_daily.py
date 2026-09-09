@@ -2,7 +2,7 @@
 
 用法（Windows PowerShell，项目根目录）：
   python scripts\\run_daily.py --input sample             # 用样例联调（当前 H2 未接入时）
-  python scripts\\run_daily.py --input db --send         # 从数据库取最近24h并发信（正式）
+  python scripts\\run_daily.py --input db --send         # 读取06:00截止窗口，生成双合集并发信
   python scripts\\run_daily.py --input db --hours 48     # 自定义时间窗（小时）
 
 若 --input db 且库为空，会提示并退出码 3（便于定时任务判断）。
@@ -39,6 +39,16 @@ def load_sample(path: Path) -> list[dict]:
     return items
 
 
+def daily_window(report_time: datetime) -> tuple[datetime, datetime]:
+    """返回以本地06:00为边界的上一完整24小时窗口。"""
+    window_end = report_time.replace(
+        hour=config.REPORT_CUTOFF_HOUR, minute=0, second=0, microsecond=0
+    )
+    if report_time < window_end:
+        window_end -= timedelta(days=1)
+    return window_end - timedelta(days=1), window_end
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="每日出报")
     parser.add_argument("--input", choices=["db", "sample"], default="db",
@@ -63,12 +73,7 @@ def main() -> int:
             if report_time.tzinfo is None:
                 report_time = report_time.replace(tzinfo=ZoneInfo(config.REPORT_TZ))
             report_time = report_time.astimezone(ZoneInfo(config.REPORT_TZ))
-            window_end = report_time.replace(
-                hour=config.REPORT_HOUR, minute=0, second=0, microsecond=0
-            )
-            if report_time < window_end:
-                window_end -= timedelta(days=1)
-            window_start = window_end - timedelta(days=1)
+            window_start, window_end = daily_window(report_time)
             items = db.load_articles_between(window_start, window_end)
             logger.info(
                 "从库读取日报窗口 [%s, %s) 文章 %d 条",
@@ -85,12 +90,31 @@ def main() -> int:
 
     client = DeepSeekClient()
     date_text = report_time.strftime("%Y年%m月%d日")
-    docx_path = OUT_DIR / f"摘报_{report_time:%Y%m%d}.docx"
-    stats = run_daily_pipeline(client, items, docx_path, send=args.send, date_text=date_text)
+    date_stamp = report_time.strftime("%Y%m%d")
+    output_dir = OUT_DIR / date_stamp
+    if args.input == "db" and args.hours is None:
+        window_text = (
+            f"{window_start:%Y-%m-%d %H:%M} 至 {window_end:%Y-%m-%d %H:%M}"
+            f"（{config.REPORT_TZ}）"
+        )
+    else:
+        window_text = None
+    stats = run_daily_pipeline(
+        client,
+        items,
+        output_dir,
+        send=args.send,
+        date_text=date_text,
+        date_stamp=date_stamp,
+        window_text=window_text,
+    )
 
     logger.info("统计：候选 %d → 入选 %d → 摘要 %d", stats["candidates"],
                 stats["in_scope"], stats["summarized"])
-    print(f"完成。docx：{docx_path}")
+    print("完成。双合集：")
+    for path in stats["collections"]:
+        print(f"- {path}")
+    print(f"逐条原文：{stats['originals']} 份；输出目录：{output_dir}")
     return 0
 
 

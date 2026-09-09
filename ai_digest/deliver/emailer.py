@@ -6,6 +6,7 @@ import smtplib
 from email.message import EmailMessage
 from email.utils import formataddr
 from pathlib import Path
+from typing import Iterable
 
 from .. import config
 
@@ -18,6 +19,7 @@ class MailError(RuntimeError):
 
 def send_email(subject: str, recipients: str | list[str] | None = None,
                text_body: str = "", docx_path: str | Path | None = None,
+               attachment_paths: Iterable[str | Path] | None = None,
                smtp_host: str | None = None, smtp_port: int | None = None,
                smtp_user: str | None = None, smtp_pass: str | None = None) -> None:
     """发送邮件。docx_path 存在则作为附件附上。"""
@@ -41,15 +43,23 @@ def send_email(subject: str, recipients: str | list[str] | None = None,
     msg["Subject"] = subject
     msg.set_content(text_body or "见附件。")
 
+    attachments = [Path(path) for path in (attachment_paths or [])]
     if docx_path:
-        docx_path = Path(docx_path)
-        if docx_path.exists():
-            msg.add_attachment(docx_path.read_bytes(),
-                               maintype="application",
-                               subtype="vnd.openxmlformats-officedocument.wordprocessingml.document",
-                               filename=docx_path.name)
-        else:
-            logger.warning("附件不存在，跳过：%s", docx_path)
+        attachments.insert(0, Path(docx_path))
+    seen: set[Path] = set()
+    for attachment in attachments:
+        if attachment in seen:
+            continue
+        seen.add(attachment)
+        if not attachment.exists():
+            logger.warning("附件不存在，跳过：%s", attachment)
+            continue
+        msg.add_attachment(
+            attachment.read_bytes(),
+            maintype="application",
+            subtype="vnd.openxmlformats-officedocument.wordprocessingml.document",
+            filename=attachment.name,
+        )
 
     with smtplib.SMTP_SSL(host, port, timeout=30) as server:
         server.login(user, pwd)

@@ -49,7 +49,7 @@ def init_db() -> None:
 
 
 def _source_map() -> dict[str, dict]:
-    """读取 config/sources.json -> {source_id: {name, country}}。"""
+    """读取来源元数据，供筛选、分组和排序使用。"""
     path = config.ROOT / "config" / "sources.json"
     if not path.exists():
         return {}
@@ -61,7 +61,13 @@ def _source_map() -> dict[str, dict]:
     for s in data.get("sources", []):
         sid = s.get("id", "")
         if sid:
-            out[sid] = {"name": s.get("name", sid), "country": s.get("country", "")}
+            out[sid] = {
+                "name": s.get("name", sid),
+                "name_en": s.get("name_en", ""),
+                "country": s.get("country", ""),
+                "type": s.get("type", ""),
+                "priority": int(s.get("priority", 50)),
+            }
     return out
 
 
@@ -99,7 +105,10 @@ def load_articles_between(start: datetime, end: datetime) -> list[dict]:
         meta = smap.get(r["source_id"], {})
         d = dict(r)
         d["source_name"] = meta.get("name", r["source_id"])
+        d["source_name_en"] = meta.get("name_en", "")
         d["country"] = meta.get("country", "")
+        d["source_type"] = meta.get("type", "")
+        d["source_priority"] = meta.get("priority", 50)
         out.append(d)
     return out
 

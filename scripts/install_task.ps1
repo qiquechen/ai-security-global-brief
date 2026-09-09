@@ -1,4 +1,4 @@
-# Register/Uninstall daily 06:00 scheduled task for AI digest (run as Administrator).
+# Register/Uninstall daily 07:00 scheduled task for AI digest (run as Administrator).
 # Usage:
 #   .\scripts\install_task.ps1            # register
 #   .\scripts\install_task.ps1 -Uninstall # uninstall
@@ -32,10 +32,10 @@ $TaskRun = '"' + $Python + '" "' + $Script + '" --input db --send'
 
 # Remove any stale task first, then create.
 schtasks /Delete /TN $TaskName /F 2>$null | Out-Null
-schtasks /Create /TN $TaskName /TR $TaskRun /SC DAILY /ST 06:00 /F
+schtasks /Create /TN $TaskName /TR $TaskRun /SC DAILY /ST 07:00 /F
 
 if ($LASTEXITCODE -eq 0) {
-    Write-Host "Registered task '$TaskName' (daily 06:00)."
+    Write-Host "Registered task '$TaskName' (daily 07:00; report cutoff remains 06:00)."
     Write-Host "Test now:        Start-ScheduledTask -TaskName $TaskName"
     Write-Host "Check last run:  Get-ScheduledTaskInfo -TaskName $TaskName"
 } else {

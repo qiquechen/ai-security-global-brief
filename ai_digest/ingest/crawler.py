@@ -145,6 +145,7 @@ def load_sources(path: Path) -> list[Source]:
                 url=entry_url,
                 feed=feed,
                 enabled=bool(item.get("enabled", True)),
+                name_en=str(item.get("name_en", "")),
                 category_hint=str(item.get("category_hint", "")),
                 allowed_domains=domains,
                 include_patterns=tuple(str(x) for x in item.get("include_patterns", [])),
@@ -154,6 +155,7 @@ def load_sources(path: Path) -> list[Source]:
                 ),
                 max_candidates=max(1, int(item.get("max_candidates", 20))),
                 use_discovered_feed=bool(item.get("use_discovered_feed", False)),
+                priority=int(item.get("priority", 50)),
             )
         )
     return result
@@ -164,6 +166,8 @@ class Fetcher:
 
     def __init__(self) -> None:
         self.session = requests.Session()
+        # 只采用项目显式配置的线路，避免系统代理悄悄改变抓取路径。
+        self.session.trust_env = False
         self.user_agent = os.getenv(
             "INGEST_USER_AGENT", "AISafetyDigest/1.0 (+replace-with-contact)"
         )
@@ -174,8 +178,20 @@ class Fetcher:
                 "Accept-Language": "en-US,en;q=0.9",
             }
         )
-        if config.PROXY:
-            self.session.proxies.update({"http": config.PROXY, "https": config.PROXY})
+        routes = [
+            ("主线路", config.PROXY_PRIMARY),
+            ("备用线路", config.PROXY_BACKUP),
+        ]
+        self._routes = []
+        seen_routes: set[str] = set()
+        for name, proxy in routes:
+            if proxy and proxy not in seen_routes:
+                self._routes.append((name, proxy))
+                seen_routes.add(proxy)
+        if not self._routes:
+            self._routes.append(("直连", ""))
+        self._route_index = 0
+        self._apply_route(0)
         self.timeout = float(os.getenv("INGEST_TIMEOUT", "25"))
         self.max_bytes = int(os.getenv("INGEST_MAX_RESPONSE_BYTES", str(4 * 1024 * 1024)))
         self.retries = max(0, int(os.getenv("INGEST_RETRIES", "2")))
@@ -185,6 +201,63 @@ class Fetcher:
         self._robots: dict[str, RobotFileParser | None] = {}
         self._slots: dict[str, float] = {}
         self._lock = threading.Lock()
+
+    @property
+    def active_route_name(self) -> str:
+        return self._routes[self._route_index][0]
+
+    def _apply_route(self, index: int) -> None:
+        self._route_index = index
+        _name, proxy = self._routes[index]
+        self.session.proxies.clear()
+        if proxy:
+            self.session.proxies.update({"http": proxy, "https": proxy})
+
+    def _switch_to_backup(self) -> bool:
+        """当前线路发生连接级故障时切到下一条线路，并保持到进程结束。"""
+        next_index = self._route_index + 1
+        if next_index >= len(self._routes):
+            return False
+        previous = self.active_route_name
+        self._apply_route(next_index)
+        logger.warning("网络线路故障：%s → %s", previous, self.active_route_name)
+        return True
+
+    @staticmethod
+    def _is_connectivity_error(exc: Exception) -> bool:
+        return isinstance(exc, (requests.ConnectionError, requests.Timeout))
+
+    def _get_with_failover(self, value: str, **kwargs) -> requests.Response:
+        """执行一次 GET；仅连接、代理或超时故障触发主备切换。"""
+        try:
+            return self.session.get(value, **kwargs)
+        except requests.RequestException as exc:
+            if self._is_connectivity_error(exc) and self._switch_to_backup():
+                return self.session.get(value, **kwargs)
+            raise
+
+    def check_connectivity(self, value: str | None = None) -> str:
+        """依次探测主备线路，返回首条可用线路名称。"""
+        target = value or config.INGEST_CONNECTIVITY_TEST_URL
+        if not target:
+            return self.active_route_name
+        errors: list[str] = []
+        for index, (name, _proxy) in enumerate(self._routes):
+            self._apply_route(index)
+            try:
+                response = self.session.get(
+                    target,
+                    timeout=min(self.timeout, 10.0),
+                    allow_redirects=True,
+                )
+                if response.status_code < 500:
+                    logger.info("网络连通性正常：%s", name)
+                    return name
+                errors.append(f"{name}=HTTP {response.status_code}")
+            except requests.RequestException as exc:
+                errors.append(f"{name}={exc.__class__.__name__}")
+        self._apply_route(0)
+        raise FetchError("主备网络线路均不可用：" + ", ".join(errors))
 
     def close(self) -> None:
         self.session.close()
@@ -214,7 +287,7 @@ class Fetcher:
         robots_url = urljoin(origin + "/", "robots.txt")
         try:
             self._wait_slot(robots_url)
-            response = self.session.get(robots_url, timeout=self.timeout)
+            response = self._get_with_failover(robots_url, timeout=self.timeout)
             if response.status_code == 404:
                 parser = RobotFileParser()
                 parser.parse([])
@@ -241,7 +314,9 @@ class Fetcher:
         for attempt in range(self.retries + 1):
             try:
                 self._wait_slot(value)
-                response = self.session.get(value, timeout=self.timeout, allow_redirects=True)
+                response = self._get_with_failover(
+                    value, timeout=self.timeout, allow_redirects=True
+                )
                 response.raise_for_status()
                 if not _domain_allowed(urlparse(response.url).hostname, source.allowed_domains):
                     raise FetchError(f"重定向超出来源域名白名单：{response.url}")

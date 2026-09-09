@@ -16,6 +16,7 @@ class Source:
     url: str
     feed: str
     enabled: bool
+    name_en: str = ""
     category_hint: str = ""
     allowed_domains: tuple[str, ...] = ()
     include_patterns: tuple[str, ...] = ()
@@ -23,6 +24,7 @@ class Source:
     exclude_exact_paths: tuple[str, ...] = ()
     max_candidates: int = 20
     use_discovered_feed: bool = False
+    priority: int = 50
 
 
 @dataclass(frozen=True)

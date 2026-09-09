@@ -56,11 +56,23 @@ SMTP_PASS = os.getenv("SMTP_PASS", "")
 RECIPIENT = os.getenv("RECIPIENT", "")
 MAIL_SUBJECT_PREFIX = os.getenv("MAIL_SUBJECT_PREFIX", "【AI安全治理摘报】")
 
-# ---- 采集代理（H2）----
-PROXY = os.getenv("PROXY", "")
+# ---- 采集网络（H2）----
+# PROXY 作为旧配置名继续兼容；新配置支持主、备两条代理线路。
+PROXY_PRIMARY = os.getenv("PROXY_PRIMARY", "").strip() or os.getenv("PROXY", "").strip()
+PROXY_BACKUP = os.getenv("PROXY_BACKUP", "").strip()
+PROXY = PROXY_PRIMARY
+INGEST_CONNECTIVITY_TEST_URL = os.getenv(
+    "INGEST_CONNECTIVITY_TEST_URL", "https://www.google.com/generate_204"
+).strip()
+INGEST_CONNECTIVITY_CHECK = os.getenv(
+    "INGEST_CONNECTIVITY_CHECK", "true"
+).lower() not in {"0", "false", "no"}
 
 # ---- 出报 ----
-REPORT_HOUR = int(os.getenv("REPORT_HOUR", "6"))
+# 每日统计窗口在06:00截止，07:00执行生成与投递。
+REPORT_CUTOFF_HOUR = int(os.getenv("REPORT_CUTOFF_HOUR", os.getenv("REPORT_HOUR", "6")))
+REPORT_HOUR = REPORT_CUTOFF_HOUR  # 兼容旧调用方
+DELIVERY_HOUR = int(os.getenv("DELIVERY_HOUR", "7"))
 REPORT_TZ = os.getenv("REPORT_TZ", "Asia/Shanghai")
 # DB_PATH 仅填文件名（默认 app.db），会自动放到 DATA_DIR 下
 DB_PATH = DATA_DIR / os.getenv("DB_PATH", "app.db")

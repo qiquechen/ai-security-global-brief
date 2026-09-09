@@ -21,7 +21,8 @@ def rank_items(items: Iterable[dict], max_items: int = MAX_ITEMS) -> list[dict]:
         seen.add(url)
         uniq.append(it)
 
-    # 先按时间倒序，再用稳定排序把高重要度排到前面（同级别内保持新→旧）
+    # 稳定排序：同等重要度下，优先高权威来源，再按时间从新到旧。
     uniq.sort(key=lambda x: x.get("published_at") or "", reverse=True)
+    uniq.sort(key=lambda x: int(x.get("source_priority") or 50), reverse=True)
     uniq.sort(key=lambda x: _ORDER.get(x.get("importance"), 2))
     return uniq[:max_items]

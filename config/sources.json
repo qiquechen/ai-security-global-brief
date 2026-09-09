@@ -1,5 +1,5 @@
 {
-  "_comment": "H1/H2融合来源清单。H2仅做白名单采集，不在此层按关键词删除文章。",
+  "_comment": "融合来源清单：政府、智库、国际组织与新闻媒体。仅做白名单采集，不在采集层按关键词删除文章。",
   "sources": [
     {
       "id": "aisi_uk",
@@ -12,10 +12,21 @@
       "feed": "",
       "enabled": true,
       "category_hint": "模型安全评估与治理",
-      "allowed_domains": ["aisi.gov.uk"],
-      "include_patterns": ["/research/", "/publications/"],
-      "exclude_patterns": ["/careers", "/about", "/privacy"],
-      "max_candidates": 30
+      "allowed_domains": [
+        "aisi.gov.uk"
+      ],
+      "include_patterns": [
+        "/research/",
+        "/publications/"
+      ],
+      "exclude_patterns": [
+        "/careers",
+        "/about",
+        "/privacy"
+      ],
+      "max_candidates": 30,
+      "name_en": "UK AI Safety Institute",
+      "priority": 95
     },
     {
       "id": "cisa_us",
@@ -28,10 +39,21 @@
       "feed": "",
       "enabled": true,
       "category_hint": "网络系统与关键基础设施安全",
-      "allowed_domains": ["cisa.gov"],
-      "include_patterns": ["/news-events/alerts/", "/news-events/news/", "/resources-tools/resources/"],
-      "exclude_patterns": ["/search", "/events/"],
-      "max_candidates": 25
+      "allowed_domains": [
+        "cisa.gov"
+      ],
+      "include_patterns": [
+        "/news-events/alerts/",
+        "/news-events/news/",
+        "/resources-tools/resources/"
+      ],
+      "exclude_patterns": [
+        "/search",
+        "/events/"
+      ],
+      "max_candidates": 25,
+      "name_en": "CISA",
+      "priority": 95
     },
     {
       "id": "ncsc_uk",
@@ -44,10 +66,22 @@
       "feed": "",
       "enabled": true,
       "category_hint": "网络与AI安全",
-      "allowed_domains": ["ncsc.gov.uk"],
-      "include_patterns": ["/blog-post/", "/guidance/", "/report/", "/news/"],
-      "exclude_patterns": ["/events", "/search"],
-      "max_candidates": 20
+      "allowed_domains": [
+        "ncsc.gov.uk"
+      ],
+      "include_patterns": [
+        "/blog-post/",
+        "/guidance/",
+        "/report/",
+        "/news/"
+      ],
+      "exclude_patterns": [
+        "/events",
+        "/search"
+      ],
+      "max_candidates": 20,
+      "name_en": "NCSC UK",
+      "priority": 95
     },
     {
       "id": "gmu_nsp",
@@ -60,10 +94,22 @@
       "feed": "",
       "enabled": true,
       "category_hint": "国家安全与科技政策",
-      "allowed_domains": ["nationalsecurity.gmu.edu"],
-      "include_patterns": ["/category/commentary/", "/2026/", "/2025/"],
-      "exclude_patterns": ["/author/", "/tag/", "/page/"],
-      "max_candidates": 20
+      "allowed_domains": [
+        "nationalsecurity.gmu.edu"
+      ],
+      "include_patterns": [
+        "/category/commentary/",
+        "/2026/",
+        "/2025/"
+      ],
+      "exclude_patterns": [
+        "/author/",
+        "/tag/",
+        "/page/"
+      ],
+      "max_candidates": 20,
+      "name_en": "GMU National Security Institute",
+      "priority": 80
     },
     {
       "id": "white_house",
@@ -76,11 +122,29 @@
       "feed": "",
       "enabled": true,
       "category_hint": "政策法规与政府治理",
-      "allowed_domains": ["whitehouse.gov"],
-      "include_patterns": ["/news/", "/briefing-room/", "/presidential-actions/"],
-      "exclude_patterns": ["/contact/", "/search/", "/privacy/", "/news/page/"],
-      "exclude_exact_paths": ["/presidential-actions/executive-orders", "/presidential-actions/proclamations", "/presidential-actions/presidential-memoranda", "/presidential-actions/nominations-appointments"],
-      "max_candidates": 30
+      "allowed_domains": [
+        "whitehouse.gov"
+      ],
+      "include_patterns": [
+        "/news/",
+        "/briefing-room/",
+        "/presidential-actions/"
+      ],
+      "exclude_patterns": [
+        "/contact/",
+        "/search/",
+        "/privacy/",
+        "/news/page/"
+      ],
+      "exclude_exact_paths": [
+        "/presidential-actions/executive-orders",
+        "/presidential-actions/proclamations",
+        "/presidential-actions/presidential-memoranda",
+        "/presidential-actions/nominations-appointments"
+      ],
+      "max_candidates": 30,
+      "name_en": "The White House",
+      "priority": 100
     },
     {
       "id": "us_ostp",
@@ -93,10 +157,21 @@
       "feed": "",
       "enabled": true,
       "category_hint": "政策法规与政府治理",
-      "allowed_domains": ["whitehouse.gov"],
-      "include_patterns": ["/ostp/", "/news/", "/briefing-room/"],
-      "exclude_patterns": ["/contact/", "/search/"],
-      "max_candidates": 30
+      "allowed_domains": [
+        "whitehouse.gov"
+      ],
+      "include_patterns": [
+        "/ostp/",
+        "/news/",
+        "/briefing-room/"
+      ],
+      "exclude_patterns": [
+        "/contact/",
+        "/search/"
+      ],
+      "max_candidates": 30,
+      "name_en": "Office of Science and Technology Policy",
+      "priority": 100
     },
     {
       "id": "us_commerce",
@@ -110,10 +185,21 @@
       "enabled": false,
       "disabled_reason": "直连与公开RSS返回HTTP 403，待合规代理或许可入口确认",
       "category_hint": "政策法规与供应链",
-      "allowed_domains": ["commerce.gov"],
-      "include_patterns": ["/news/", "/issues/"],
-      "exclude_patterns": ["/about/", "/contact/", "/search"],
-      "max_candidates": 25
+      "allowed_domains": [
+        "commerce.gov"
+      ],
+      "include_patterns": [
+        "/news/",
+        "/issues/"
+      ],
+      "exclude_patterns": [
+        "/about/",
+        "/contact/",
+        "/search"
+      ],
+      "max_candidates": 25,
+      "name_en": "U.S. Department of Commerce",
+      "priority": 98
     },
     {
       "id": "us_dhs",
@@ -126,10 +212,20 @@
       "feed": "",
       "enabled": true,
       "category_hint": "网络系统与现实安全",
-      "allowed_domains": ["dhs.gov"],
-      "include_patterns": ["/news/", "/publication/"],
-      "exclude_patterns": ["/contact-us", "/search"],
-      "max_candidates": 25
+      "allowed_domains": [
+        "dhs.gov"
+      ],
+      "include_patterns": [
+        "/news/",
+        "/publication/"
+      ],
+      "exclude_patterns": [
+        "/contact-us",
+        "/search"
+      ],
+      "max_candidates": 25,
+      "name_en": "U.S. Department of Homeland Security",
+      "priority": 98
     },
     {
       "id": "us_nsf",
@@ -142,11 +238,22 @@
       "feed": "",
       "enabled": true,
       "category_hint": "科技研发与安全治理",
-      "allowed_domains": ["nsf.gov"],
-      "include_patterns": ["/news/"],
-      "exclude_patterns": ["/contact/", "/search/"],
-      "exclude_exact_paths": ["/news/releases"],
-      "max_candidates": 20
+      "allowed_domains": [
+        "nsf.gov"
+      ],
+      "include_patterns": [
+        "/news/"
+      ],
+      "exclude_patterns": [
+        "/contact/",
+        "/search/"
+      ],
+      "exclude_exact_paths": [
+        "/news/releases"
+      ],
+      "max_candidates": 20,
+      "name_en": "U.S. National Science Foundation",
+      "priority": 95
     },
     {
       "id": "rand",
@@ -160,10 +267,20 @@
       "enabled": false,
       "disabled_reason": "公开Atom入口可达但robots.txt返回403，按fail-closed暂不抓取",
       "category_hint": "综合风险与治理",
-      "allowed_domains": ["rand.org"],
-      "include_patterns": ["/pubs/", "/topics/artificial-intelligence"],
-      "exclude_patterns": ["/jobs/", "/about/"],
-      "max_candidates": 25
+      "allowed_domains": [
+        "rand.org"
+      ],
+      "include_patterns": [
+        "/pubs/",
+        "/topics/artificial-intelligence"
+      ],
+      "exclude_patterns": [
+        "/jobs/",
+        "/about/"
+      ],
+      "max_candidates": 25,
+      "name_en": "RAND Corporation",
+      "priority": 90
     },
     {
       "id": "brookings",
@@ -176,10 +293,22 @@
       "feed": "",
       "enabled": true,
       "category_hint": "政策法规与社会影响",
-      "allowed_domains": ["brookings.edu"],
-      "include_patterns": ["/articles/", "/research/", "/topics/artificial-intelligence/"],
-      "exclude_patterns": ["/events/", "/experts/", "/search/"],
-      "max_candidates": 25
+      "allowed_domains": [
+        "brookings.edu"
+      ],
+      "include_patterns": [
+        "/articles/",
+        "/research/",
+        "/topics/artificial-intelligence/"
+      ],
+      "exclude_patterns": [
+        "/events/",
+        "/experts/",
+        "/search/"
+      ],
+      "max_candidates": 25,
+      "name_en": "Brookings Institution",
+      "priority": 90
     },
     {
       "id": "csis",
@@ -192,10 +321,20 @@
       "feed": "",
       "enabled": true,
       "category_hint": "战略安全与国际治理",
-      "allowed_domains": ["csis.org"],
-      "include_patterns": ["/analysis/", "/topics/artificial-intelligence"],
-      "exclude_patterns": ["/events/", "/people/"],
-      "max_candidates": 25
+      "allowed_domains": [
+        "csis.org"
+      ],
+      "include_patterns": [
+        "/analysis/",
+        "/topics/artificial-intelligence"
+      ],
+      "exclude_patterns": [
+        "/events/",
+        "/people/"
+      ],
+      "max_candidates": 25,
+      "name_en": "Center for Strategic and International Studies",
+      "priority": 90
     },
     {
       "id": "cnas",
@@ -208,10 +347,19 @@
       "feed": "",
       "enabled": true,
       "category_hint": "战略安全与国防应用",
-      "allowed_domains": ["cnas.org"],
-      "include_patterns": ["/publications/"],
-      "exclude_patterns": ["/people/", "/events/"],
-      "max_candidates": 20
+      "allowed_domains": [
+        "cnas.org"
+      ],
+      "include_patterns": [
+        "/publications/"
+      ],
+      "exclude_patterns": [
+        "/people/",
+        "/events/"
+      ],
+      "max_candidates": 20,
+      "name_en": "Center for a New American Security",
+      "priority": 88
     },
     {
       "id": "aei",
@@ -224,10 +372,22 @@
       "feed": "",
       "enabled": true,
       "category_hint": "政策法规与产业治理",
-      "allowed_domains": ["aei.org"],
-      "include_patterns": ["/technology/", "/artificial-intelligence/", "/research/", "/articles/"],
-      "exclude_patterns": ["/profile/", "/events/"],
-      "max_candidates": 20
+      "allowed_domains": [
+        "aei.org"
+      ],
+      "include_patterns": [
+        "/technology/",
+        "/artificial-intelligence/",
+        "/research/",
+        "/articles/"
+      ],
+      "exclude_patterns": [
+        "/profile/",
+        "/events/"
+      ],
+      "max_candidates": 20,
+      "name_en": "American Enterprise Institute",
+      "priority": 86
     },
     {
       "id": "carnegie",
@@ -240,10 +400,21 @@
       "feed": "",
       "enabled": true,
       "category_hint": "国际治理与科技政策",
-      "allowed_domains": ["carnegieendowment.org"],
-      "include_patterns": ["/research/", "/posts/", "/topics/technology"],
-      "exclude_patterns": ["/experts/", "/events/"],
-      "max_candidates": 20
+      "allowed_domains": [
+        "carnegieendowment.org"
+      ],
+      "include_patterns": [
+        "/research/",
+        "/posts/",
+        "/topics/technology"
+      ],
+      "exclude_patterns": [
+        "/experts/",
+        "/events/"
+      ],
+      "max_candidates": 20,
+      "name_en": "Carnegie Endowment for International Peace",
+      "priority": 86
     },
     {
       "id": "atlantic_council",
@@ -256,10 +427,20 @@
       "feed": "",
       "enabled": true,
       "category_hint": "地缘科技与国际治理",
-      "allowed_domains": ["atlanticcouncil.org"],
-      "include_patterns": ["/blogs/", "/in-depth-research-reports/"],
-      "exclude_patterns": ["/events/", "/experts/"],
-      "max_candidates": 20
+      "allowed_domains": [
+        "atlanticcouncil.org"
+      ],
+      "include_patterns": [
+        "/blogs/",
+        "/in-depth-research-reports/"
+      ],
+      "exclude_patterns": [
+        "/events/",
+        "/experts/"
+      ],
+      "max_candidates": 20,
+      "name_en": "Atlantic Council",
+      "priority": 84
     },
     {
       "id": "itif",
@@ -272,10 +453,960 @@
       "feed": "",
       "enabled": true,
       "category_hint": "产业政策与创新治理",
-      "allowed_domains": ["itif.org"],
-      "include_patterns": ["/publications/", "/issues/artificial-intelligence/"],
-      "exclude_patterns": ["/events/", "/people/"],
-      "max_candidates": 20
+      "allowed_domains": [
+        "itif.org"
+      ],
+      "include_patterns": [
+        "/publications/",
+        "/issues/artificial-intelligence/"
+      ],
+      "exclude_patterns": [
+        "/events/",
+        "/people/"
+      ],
+      "max_candidates": 20,
+      "name_en": "Information Technology and Innovation Foundation",
+      "priority": 84
+    },
+    {
+      "id": "heritage",
+      "name": "传统基金会",
+      "name_en": "The Heritage Foundation",
+      "country": "美国",
+      "type": "thinktank",
+      "method": "page",
+      "url": "https://www.heritage.org/",
+      "homepage": "https://www.heritage.org/",
+      "enabled": true,
+      "category_hint": "",
+      "priority": 55,
+      "allowed_domains": [
+        "heritage.org"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/contact",
+        "/search",
+        "/privacy",
+        "/about",
+        "/events",
+        "/people",
+        "/careers",
+        "/jobs",
+        "/press",
+        "/media",
+        "/support",
+        "/donate"
+      ],
+      "max_candidates": 15,
+      "feed": ""
+    },
+    {
+      "id": "cato",
+      "name": "凯托学会",
+      "name_en": "Cato Institute",
+      "country": "美国",
+      "type": "thinktank",
+      "method": "page",
+      "url": "https://www.cato.org/",
+      "homepage": "https://www.cato.org/",
+      "enabled": false,
+      "category_hint": "",
+      "priority": 55,
+      "allowed_domains": [
+        "cato.org"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/contact",
+        "/search",
+        "/privacy",
+        "/about",
+        "/events",
+        "/people",
+        "/careers",
+        "/jobs",
+        "/press",
+        "/media",
+        "/support",
+        "/donate"
+      ],
+      "max_candidates": 15,
+      "disabled_reason": "robots.txt 403 触发 fail-closed 合规策略，无法抓取",
+      "feed": ""
+    },
+    {
+      "id": "hoover",
+      "name": "胡佛研究所",
+      "name_en": "Hoover Institution",
+      "country": "美国",
+      "type": "thinktank",
+      "method": "page",
+      "url": "https://www.hoover.org/",
+      "homepage": "https://www.hoover.org/",
+      "enabled": true,
+      "category_hint": "",
+      "priority": 55,
+      "allowed_domains": [
+        "hoover.org"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/contact",
+        "/search",
+        "/privacy",
+        "/about",
+        "/events",
+        "/people",
+        "/careers",
+        "/jobs",
+        "/press",
+        "/media",
+        "/support",
+        "/donate"
+      ],
+      "max_candidates": 15,
+      "feed": ""
+    },
+    {
+      "id": "hudson",
+      "name": "哈德逊研究所",
+      "name_en": "Hudson Institute",
+      "country": "美国",
+      "type": "thinktank",
+      "method": "page",
+      "url": "https://www.hudson.org/",
+      "homepage": "https://www.hudson.org/",
+      "enabled": true,
+      "category_hint": "",
+      "priority": 55,
+      "allowed_domains": [
+        "hudson.org"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/contact",
+        "/search",
+        "/privacy",
+        "/about",
+        "/events",
+        "/people",
+        "/careers",
+        "/jobs",
+        "/press",
+        "/media",
+        "/support",
+        "/donate"
+      ],
+      "max_candidates": 15,
+      "feed": ""
+    },
+    {
+      "id": "wilson_center",
+      "name": "伍德罗·威尔逊中心",
+      "name_en": "Wilson Center",
+      "country": "美国",
+      "type": "thinktank",
+      "method": "page",
+      "url": "https://www.wilsoncenter.org/",
+      "homepage": "https://www.wilsoncenter.org/",
+      "enabled": true,
+      "category_hint": "",
+      "priority": 55,
+      "allowed_domains": [
+        "wilsoncenter.org"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/contact",
+        "/search",
+        "/privacy",
+        "/about",
+        "/events",
+        "/people",
+        "/careers",
+        "/jobs",
+        "/press",
+        "/media",
+        "/support",
+        "/donate"
+      ],
+      "max_candidates": 15,
+      "feed": ""
+    },
+    {
+      "id": "piie",
+      "name": "彼得森国际经济研究所",
+      "name_en": "Peterson Institute for International Economics",
+      "country": "美国",
+      "type": "thinktank",
+      "method": "page",
+      "url": "https://www.piie.com/",
+      "homepage": "https://www.piie.com/",
+      "enabled": true,
+      "category_hint": "",
+      "priority": 55,
+      "allowed_domains": [
+        "piie.com"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/contact",
+        "/search",
+        "/privacy",
+        "/about",
+        "/events",
+        "/people",
+        "/careers",
+        "/jobs",
+        "/press",
+        "/media",
+        "/support",
+        "/donate"
+      ],
+      "max_candidates": 15,
+      "feed": ""
+    },
+    {
+      "id": "cfr",
+      "name": "外交关系协会",
+      "name_en": "Council on Foreign Relations",
+      "country": "美国",
+      "type": "thinktank",
+      "method": "page",
+      "url": "https://www.cfr.org/",
+      "homepage": "https://www.cfr.org/",
+      "enabled": true,
+      "category_hint": "",
+      "priority": 55,
+      "allowed_domains": [
+        "cfr.org"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/contact",
+        "/search",
+        "/privacy",
+        "/about",
+        "/events",
+        "/people",
+        "/careers",
+        "/jobs",
+        "/press",
+        "/media",
+        "/support",
+        "/donate"
+      ],
+      "max_candidates": 15,
+      "feed": ""
+    },
+    {
+      "id": "belfer",
+      "name": "贝尔弗科学与国际事务研究中心",
+      "name_en": "Belfer Center",
+      "country": "美国",
+      "type": "thinktank",
+      "method": "page",
+      "url": "https://www.belfercenter.org/",
+      "homepage": "https://www.belfercenter.org/",
+      "enabled": true,
+      "category_hint": "",
+      "priority": 55,
+      "allowed_domains": [
+        "belfercenter.org"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/contact",
+        "/search",
+        "/privacy",
+        "/about",
+        "/events",
+        "/people",
+        "/careers",
+        "/jobs",
+        "/press",
+        "/media",
+        "/support",
+        "/donate"
+      ],
+      "max_candidates": 15,
+      "feed": ""
+    },
+    {
+      "id": "nbr",
+      "name": "美国国家亚洲研究局",
+      "name_en": "National Bureau of Asian Research",
+      "country": "美国",
+      "type": "thinktank",
+      "method": "page",
+      "url": "https://www.nbr.org/",
+      "homepage": "https://www.nbr.org/",
+      "enabled": true,
+      "category_hint": "",
+      "priority": 55,
+      "allowed_domains": [
+        "nbr.org"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/contact",
+        "/search",
+        "/privacy",
+        "/about",
+        "/events",
+        "/people",
+        "/careers",
+        "/jobs",
+        "/press",
+        "/media",
+        "/support",
+        "/donate"
+      ],
+      "max_candidates": 15,
+      "feed": ""
+    },
+    {
+      "id": "quincy",
+      "name": "昆西治国方略研究所",
+      "name_en": "Quincy Institute for Responsible Statecraft",
+      "country": "美国",
+      "type": "thinktank",
+      "method": "page",
+      "url": "https://quincyinst.org/",
+      "homepage": "https://quincyinst.org/",
+      "enabled": true,
+      "category_hint": "",
+      "priority": 55,
+      "allowed_domains": [
+        "quincyinst.org"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/contact",
+        "/search",
+        "/privacy",
+        "/about",
+        "/events",
+        "/people",
+        "/careers",
+        "/jobs",
+        "/press",
+        "/media",
+        "/support",
+        "/donate"
+      ],
+      "max_candidates": 15,
+      "feed": ""
+    },
+    {
+      "id": "stimson",
+      "name": "史汀生中心",
+      "name_en": "Stimson Center",
+      "country": "美国",
+      "type": "thinktank",
+      "method": "rss",
+      "url": "https://www.stimson.org/feed/",
+      "homepage": "https://www.stimson.org/",
+      "enabled": true,
+      "category_hint": "",
+      "priority": 55,
+      "allowed_domains": [
+        "stimson.org"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/contact",
+        "/search",
+        "/privacy",
+        "/about",
+        "/events",
+        "/people",
+        "/careers",
+        "/jobs",
+        "/press",
+        "/media",
+        "/support",
+        "/donate"
+      ],
+      "max_candidates": 15,
+      "feed": "https://www.stimson.org/feed/"
+    },
+    {
+      "id": "americanprogress",
+      "name": "美国进步中心",
+      "name_en": "Center for American Progress",
+      "country": "美国",
+      "type": "thinktank",
+      "method": "rss",
+      "url": "https://www.americanprogress.org/feed/",
+      "homepage": "https://www.americanprogress.org/",
+      "enabled": true,
+      "category_hint": "",
+      "priority": 55,
+      "allowed_domains": [
+        "americanprogress.org"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/contact",
+        "/search",
+        "/privacy",
+        "/about",
+        "/events",
+        "/people",
+        "/careers",
+        "/jobs",
+        "/press",
+        "/media",
+        "/support",
+        "/donate"
+      ],
+      "max_candidates": 15,
+      "feed": "https://www.americanprogress.org/feed/"
+    },
+    {
+      "id": "usip",
+      "name": "美国和平研究所",
+      "name_en": "United States Institute of Peace",
+      "country": "美国",
+      "type": "thinktank",
+      "method": "rss",
+      "url": "https://www.usip.org/feed/",
+      "homepage": "https://www.usip.org/",
+      "enabled": true,
+      "category_hint": "",
+      "priority": 55,
+      "allowed_domains": [
+        "usip.org"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/contact",
+        "/search",
+        "/privacy",
+        "/about",
+        "/events",
+        "/people",
+        "/careers",
+        "/jobs",
+        "/press",
+        "/media",
+        "/support",
+        "/donate"
+      ],
+      "max_candidates": 15,
+      "feed": "https://www.usip.org/feed/"
+    },
+    {
+      "id": "fpri",
+      "name": "外交政策研究所",
+      "name_en": "Foreign Policy Research Institute",
+      "country": "美国",
+      "type": "thinktank",
+      "method": "page",
+      "url": "https://www.fpri.org/",
+      "homepage": "https://www.fpri.org/",
+      "enabled": true,
+      "category_hint": "",
+      "priority": 55,
+      "allowed_domains": [
+        "fpri.org"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/contact",
+        "/search",
+        "/privacy",
+        "/about",
+        "/events",
+        "/people",
+        "/careers",
+        "/jobs",
+        "/press",
+        "/media",
+        "/support",
+        "/donate"
+      ],
+      "max_candidates": 15,
+      "feed": ""
+    },
+    {
+      "id": "merics",
+      "name": "墨卡托中国研究所",
+      "name_en": "MERICS",
+      "country": "德国",
+      "type": "thinktank",
+      "method": "page",
+      "url": "https://merics.org/",
+      "homepage": "https://merics.org/",
+      "enabled": true,
+      "category_hint": "",
+      "priority": 55,
+      "allowed_domains": [
+        "merics.org"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/contact",
+        "/search",
+        "/privacy",
+        "/about",
+        "/events",
+        "/people",
+        "/careers",
+        "/jobs",
+        "/press",
+        "/media",
+        "/support",
+        "/donate"
+      ],
+      "max_candidates": 15,
+      "feed": ""
+    },
+    {
+      "id": "war_on_the_rocks",
+      "name": "岩石战争",
+      "name_en": "War on the Rocks",
+      "country": "美国",
+      "type": "media",
+      "method": "page",
+      "url": "https://warontherocks.com/",
+      "homepage": "https://warontherocks.com/",
+      "enabled": true,
+      "category_hint": "",
+      "priority": 55,
+      "allowed_domains": [
+        "warontherocks.com"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/contact",
+        "/search",
+        "/privacy",
+        "/about",
+        "/events",
+        "/people",
+        "/careers",
+        "/jobs",
+        "/press",
+        "/media",
+        "/support",
+        "/donate"
+      ],
+      "max_candidates": 15,
+      "feed": ""
+    },
+    {
+      "id": "foreign_affairs",
+      "name": "外交事务",
+      "name_en": "Foreign Affairs",
+      "country": "美国",
+      "type": "media",
+      "method": "page",
+      "url": "https://www.foreignaffairs.com/",
+      "homepage": "https://www.foreignaffairs.com/",
+      "enabled": true,
+      "category_hint": "",
+      "priority": 55,
+      "allowed_domains": [
+        "foreignaffairs.com"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/contact",
+        "/search",
+        "/privacy",
+        "/about",
+        "/events",
+        "/people",
+        "/careers",
+        "/jobs",
+        "/press",
+        "/media",
+        "/support",
+        "/donate"
+      ],
+      "max_candidates": 15,
+      "feed": ""
+    },
+    {
+      "id": "foreign_policy",
+      "name": "外交政策",
+      "name_en": "Foreign Policy",
+      "country": "美国",
+      "type": "media",
+      "method": "page",
+      "url": "https://foreignpolicy.com/",
+      "homepage": "https://foreignpolicy.com/",
+      "enabled": true,
+      "category_hint": "",
+      "priority": 55,
+      "allowed_domains": [
+        "foreignpolicy.com"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/contact",
+        "/search",
+        "/privacy",
+        "/about",
+        "/events",
+        "/people",
+        "/careers",
+        "/jobs",
+        "/press",
+        "/media",
+        "/support",
+        "/donate"
+      ],
+      "max_candidates": 15,
+      "feed": ""
+    },
+    {
+      "id": "the_diplomat",
+      "name": "外交官杂志",
+      "name_en": "The Diplomat",
+      "country": "美国",
+      "type": "media",
+      "method": "page",
+      "url": "https://thediplomat.com/",
+      "homepage": "https://thediplomat.com/",
+      "enabled": true,
+      "category_hint": "",
+      "priority": 55,
+      "allowed_domains": [
+        "thediplomat.com"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/contact",
+        "/search",
+        "/privacy",
+        "/about",
+        "/events",
+        "/people",
+        "/careers",
+        "/jobs",
+        "/press",
+        "/media",
+        "/support",
+        "/donate"
+      ],
+      "max_candidates": 15,
+      "feed": ""
+    },
+    {
+      "id": "national_interest",
+      "name": "国家利益",
+      "name_en": "The National Interest",
+      "country": "美国",
+      "type": "media",
+      "method": "page",
+      "url": "https://nationalinterest.org/",
+      "homepage": "https://nationalinterest.org/",
+      "enabled": true,
+      "category_hint": "",
+      "priority": 55,
+      "allowed_domains": [
+        "nationalinterest.org"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/contact",
+        "/search",
+        "/privacy",
+        "/about",
+        "/events",
+        "/people",
+        "/careers",
+        "/jobs",
+        "/press",
+        "/media",
+        "/support",
+        "/donate"
+      ],
+      "max_candidates": 15,
+      "feed": ""
+    },
+    {
+      "id": "the_economist",
+      "name": "经济学人",
+      "name_en": "The Economist",
+      "country": "英国",
+      "type": "media",
+      "method": "page",
+      "url": "https://www.economist.com/",
+      "homepage": "https://www.economist.com/",
+      "enabled": false,
+      "category_hint": "",
+      "priority": 55,
+      "allowed_domains": [
+        "economist.com"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/contact",
+        "/search",
+        "/privacy",
+        "/about",
+        "/events",
+        "/people",
+        "/careers",
+        "/jobs",
+        "/press",
+        "/media",
+        "/support",
+        "/donate"
+      ],
+      "max_candidates": 15,
+      "disabled_reason": "整站 403（付费/反爬），无法抓取",
+      "feed": ""
+    },
+    {
+      "id": "nist_ai",
+      "name": "美国国家标准与技术研究院人工智能项目",
+      "name_en": "NIST Artificial Intelligence Program",
+      "country": "美国",
+      "type": "gov",
+      "method": "page",
+      "url": "https://www.nist.gov/artificial-intelligence",
+      "homepage": "https://www.nist.gov/",
+      "enabled": true,
+      "category_hint": "标准测评与人工智能风险管理",
+      "priority": 98,
+      "allowed_domains": [
+        "nist.gov"
+      ],
+      "include_patterns": [
+        "/artificial-intelligence/",
+        "/news-events/news/"
+      ],
+      "exclude_patterns": [
+        "/events/",
+        "/careers/",
+        "/contact/"
+      ],
+      "max_candidates": 30,
+      "feed": ""
+    },
+    {
+      "id": "eu_ai_office",
+      "name": "欧盟人工智能办公室",
+      "name_en": "European AI Office",
+      "country": "欧盟",
+      "type": "gov",
+      "method": "page",
+      "url": "https://digital-strategy.ec.europa.eu/en/policies/ai-office",
+      "homepage": "https://digital-strategy.ec.europa.eu/",
+      "enabled": true,
+      "category_hint": "人工智能法案实施与监管",
+      "priority": 100,
+      "allowed_domains": [
+        "digital-strategy.ec.europa.eu"
+      ],
+      "include_patterns": [
+        "/en/news/",
+        "/en/library/",
+        "/en/policies/regulatory-framework-ai"
+      ],
+      "exclude_patterns": [
+        "/en/events/",
+        "/en/funding/",
+        "/search"
+      ],
+      "max_candidates": 35,
+      "feed": ""
+    },
+    {
+      "id": "oecd_ai",
+      "name": "经济合作与发展组织人工智能项目",
+      "name_en": "OECD Artificial Intelligence",
+      "country": "国际组织",
+      "type": "organization",
+      "method": "page",
+      "url": "https://www.oecd.org/en/topics/policy-issues/artificial-intelligence.html",
+      "homepage": "https://www.oecd.org/",
+      "enabled": true,
+      "category_hint": "国际人工智能政策与治理",
+      "priority": 95,
+      "allowed_domains": [
+        "oecd.org"
+      ],
+      "include_patterns": [
+        "/en/publications/",
+        "/en/about/news/",
+        "/en/blogs/"
+      ],
+      "exclude_patterns": [
+        "/events/",
+        "/careers/",
+        "/search"
+      ],
+      "max_candidates": 30,
+      "feed": ""
+    },
+    {
+      "id": "un_odet",
+      "name": "联合国数字和新兴技术办公室",
+      "name_en": "UN Office for Digital and Emerging Technologies",
+      "country": "国际组织",
+      "type": "organization",
+      "method": "page",
+      "url": "https://www.un.org/digital-emerging-technologies/",
+      "homepage": "https://www.un.org/digital-emerging-technologies/",
+      "enabled": true,
+      "category_hint": "全球人工智能治理合作",
+      "priority": 95,
+      "allowed_domains": [
+        "un.org"
+      ],
+      "include_patterns": [
+        "/digital-emerging-technologies/node/",
+        "/global-dialogue-ai-governance/",
+        "/press/en/"
+      ],
+      "exclude_patterns": [
+        "/events/",
+        "/search/"
+      ],
+      "max_candidates": 25,
+      "feed": ""
+    },
+    {
+      "id": "cset",
+      "name": "安全与新兴技术中心",
+      "name_en": "Center for Security and Emerging Technology",
+      "country": "美国",
+      "type": "thinktank",
+      "method": "page",
+      "url": "https://cset.georgetown.edu/",
+      "homepage": "https://cset.georgetown.edu/",
+      "enabled": true,
+      "category_hint": "新兴技术、国家安全与人工智能治理",
+      "priority": 90,
+      "allowed_domains": [
+        "cset.georgetown.edu"
+      ],
+      "include_patterns": [
+        "/publication/",
+        "/article/",
+        "/news/"
+      ],
+      "exclude_patterns": [
+        "/events/",
+        "/people/",
+        "/about/"
+      ],
+      "max_candidates": 30,
+      "feed": ""
+    },
+    {
+      "id": "center_ai_safety",
+      "name": "人工智能安全中心",
+      "name_en": "Center for AI Safety",
+      "country": "美国",
+      "type": "organization",
+      "method": "page",
+      "url": "https://safe.ai/",
+      "homepage": "https://safe.ai/",
+      "enabled": true,
+      "category_hint": "前沿人工智能系统性风险研究",
+      "priority": 88,
+      "allowed_domains": [
+        "safe.ai"
+      ],
+      "include_patterns": [
+        "/research",
+        "/blog"
+      ],
+      "exclude_patterns": [
+        "/about",
+        "/team",
+        "/careers"
+      ],
+      "max_candidates": 25,
+      "feed": ""
+    },
+    {
+      "id": "canada_aisi",
+      "name": "加拿大人工智能安全研究所",
+      "name_en": "Canadian Artificial Intelligence Safety Institute",
+      "country": "加拿大",
+      "type": "gov",
+      "method": "page",
+      "url": "https://ised-isde.canada.ca/site/ised/en/canadian-artificial-intelligence-safety-institute",
+      "homepage": "https://ised-isde.canada.ca/",
+      "enabled": true,
+      "category_hint": "人工智能安全评估与国际合作",
+      "priority": 96,
+      "allowed_domains": [
+        "ised-isde.canada.ca",
+        "canada.ca"
+      ],
+      "include_patterns": [
+        "/site/ised/en/canadian-artificial-intelligence-safety-institute/",
+        "/en/innovation-science-economic-development/news/"
+      ],
+      "exclude_patterns": [
+        "/contact/",
+        "/search/"
+      ],
+      "max_candidates": 25,
+      "feed": ""
+    },
+    {
+      "id": "australia_aisi",
+      "name": "澳大利亚人工智能安全研究所",
+      "name_en": "Australia's AI Safety Institute",
+      "country": "澳大利亚",
+      "type": "gov",
+      "method": "page",
+      "url": "https://www.industry.gov.au/science-technology-and-innovation/technology/artificial-intelligence/ai-safety-institute",
+      "homepage": "https://www.industry.gov.au/",
+      "enabled": true,
+      "category_hint": "人工智能能力、风险与危害监测",
+      "priority": 96,
+      "allowed_domains": [
+        "industry.gov.au"
+      ],
+      "include_patterns": [
+        "/news/",
+        "/publications/",
+        "/science-technology-and-innovation/technology/artificial-intelligence/ai-safety-institute/"
+      ],
+      "exclude_patterns": [
+        "/contact-us",
+        "/search"
+      ],
+      "max_candidates": 30,
+      "feed": ""
+    },
+    {
+      "id": "guardian_ai",
+      "name": "卫报人工智能栏目",
+      "name_en": "The Guardian - Artificial Intelligence",
+      "country": "英国",
+      "type": "media",
+      "method": "page",
+      "url": "https://www.theguardian.com/technology/artificialintelligenceai",
+      "homepage": "https://www.theguardian.com/",
+      "enabled": true,
+      "category_hint": "人工智能政策、安全与社会影响报道",
+      "priority": 75,
+      "allowed_domains": [
+        "theguardian.com"
+      ],
+      "include_patterns": [
+        "/technology/"
+      ],
+      "exclude_patterns": [
+        "/technology/artificialintelligenceai/",
+        "/help/",
+        "/info/"
+      ],
+      "max_candidates": 30,
+      "feed": ""
     }
   ]
 }

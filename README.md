@@ -27,8 +27,8 @@ ai-digest/
 python -m venv .venv                 # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 cp .env.example .env                 # 填入 DeepSeek key / SMTP 授权码
-python scripts/demo_h1.py            # 跑通：判定 → 摘要 → 生成 demo 摘报 docx
-python scripts/demo_h1.py --send     # 额外把 docx 发到 RECIPIENT
+python scripts/demo_h1.py            # 跑通：判定 → 摘要 → 生成双合集及逐条原文docx
+python scripts/demo_h1.py --send     # 全部生成后一次发到 RECIPIENT
 ```
 
 ## H2采集与融合运行
@@ -40,7 +40,7 @@ python -m ai_digest.ingest.run --validate-only
 # 单源抓取并导出真实样本
 python -m ai_digest.ingest.run --source aisi_uk --days 60 --max-per-source 3 --export data/sample_articles.jsonl
 
-# H1从真实数据库执行判定→摘要→DOCX（测试时不发邮件）
+# H1从真实数据库执行判定→摘要→双合集/逐条原文DOCX（测试时不发邮件）
 python scripts/run_daily.py --input db --hours 1440
 
 # 每小时调度所调用的统一入口
@@ -48,7 +48,13 @@ python scripts/run_crawl.py
 ```
 
 采集侧默认遵守域名白名单与 `robots.txt`，同域请求间隔0.3秒，读取 `.env`
-中的 `PROXY`；来源失败会写入 `logs/`，不会中断其他来源。语义筛选仍由H1执行。
+中的 `PROXY_PRIMARY`/`PROXY_BACKUP`（兼容旧 `PROXY`）；启动时会做连通性检测，
+主线路发生连接、代理或超时故障时自动切换备用线路。来源失败会写入 `logs/`，
+不会中断其他来源。语义筛选仍由H1执行。
+
+正式日报统计窗口为北京时间 `[昨日06:00, 今日06:00)`，07:00生成并单次发送。
+输出按“新闻媒体信息”和“机构信息”分目录：每类包含1份摘要合集，以及每篇入选
+文章对应的独立原文Word；合集和原文中的链接均为可点击外部超链接。
 
 DeepSeek密钥优先读取环境变量或 `.env`；未配置有效值时，也支持读取项目同级的
 `deepseek_API.txt`。密钥文件不得放入压缩包或Git仓库。
