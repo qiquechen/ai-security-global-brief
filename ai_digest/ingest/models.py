@@ -54,6 +54,7 @@ class CrawlStats:
     accepted: int = 0
     inserted: int = 0
     existing: int = 0
+    blacklisted: int = 0
     outside_window: int = 0
     missing_time: int = 0
     empty_text: int = 0

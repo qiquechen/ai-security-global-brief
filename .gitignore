@@ -1,24 +1,50 @@
-# 环境与密钥（严禁提交真实值）
+# ===== 密钥与凭据（严禁提交真实值）=====
 .env
+.env.*
+!.env.example
 deepseek_API.txt
 *_API.txt
+*.pem
+*.key
+credentials.json
+token.json
 
-# 运行时产物
+# ===== 运行时数据与产物 =====
 data/
 logs/
+*.log
 *.db
 *.db-journal
+*.db-wal
+*.db-shm
+report_output/
+tmp/
+*.tmp
 
-# Python
+# ===== Python =====
 __pycache__/
 *.py[cod]
 .venv/
 venv/
+env/
 dist/
 build/
 *.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
 
-# 输出文档（按需保留；如要归档摘报可取消下一行注释）
-report_output/
-tmp/
-*.zip
+# ===== 编辑器与系统文件 =====
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== 本地参考文件（不随仓库分发）=====
+Bookmarks (1)
+
+# 说明：report_output/ 存放每日合集与原文，默认不提交；
+# 如需归档特定摘报，可用 git add -f <路径> 强制加入。

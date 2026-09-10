@@ -15,7 +15,9 @@ DISABLED_MARK = Path(__file__).resolve().parent.parent / "data" / "CRAWL_DISABLE
 
 def main() -> int:
     if DISABLED_MARK.exists():
-        logger.info("发现 CRAWL_DISABLED 标记，跳过本次采集。")
+        from ai_digest.audit import operation
+        with operation("crawl.skipped", reason="CRAWL_DISABLED"):
+            logger.info("发现 CRAWL_DISABLED 标记，跳过本次采集。")
         return 0
 
     try:

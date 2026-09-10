@@ -53,8 +53,7 @@ def send_email(subject: str, recipients: str | list[str] | None = None,
             continue
         seen.add(attachment)
         if not attachment.exists():
-            logger.warning("附件不存在，跳过：%s", attachment)
-            continue
+            raise MailError(f"附件不存在：{attachment}")
         # 固定报告附件的标准类型，避免 Windows 注册表覆盖 MIME 映射。
         content_type = {
             ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",

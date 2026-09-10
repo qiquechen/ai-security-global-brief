@@ -16,6 +16,7 @@ from typing import Any, Optional
 import openai
 
 from .. import config
+from ..audit import operation
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +50,7 @@ class DeepSeekClient:
         if self.thinking_mode not in {"enabled", "disabled"}:
             raise LLMError("DEEPSEEK_THINKING_MODE 必须为 enabled 或 disabled")
         self.chat_model = chat_model
-        self.client = openai.OpenAI(api_key=api_key, base_url=base_url, timeout=timeout)
+        self.client = openai.OpenAI(api_key=api_key, base_url=base_url, timeout=timeout, max_retries=0)
         self.max_retries = max_retries
 
     # ---------- 基础调用 ----------
@@ -62,20 +63,40 @@ class DeepSeekClient:
         last_err: Optional[Exception] = None
         for attempt in range(1, self.max_retries + 1):
             try:
-                resp = self.client.chat.completions.create(
-                    model=model,
-                    extra_body={"thinking": {"type": mode}},
-                    **({"temperature": temperature} if mode == "disabled" else {}),
-                    messages=[
-                        {"role": "system", "content": system},
-                        {"role": "user", "content": user},
-                    ],
-                )
-                logger.info(
-                    "DeepSeek 请求模型=%s，思考模式=%s，响应模型=%s",
-                    model, mode, resp.model,
-                )
-                content = resp.choices[0].message.content or ""
+                started = time.monotonic()
+                with operation("llm.request", model=model, thinking_mode=mode, attempt=attempt) as log:
+                    resp = self.client.chat.completions.create(
+                        model=model,
+                        extra_body={"thinking": {"type": mode}},
+                        **({"temperature": temperature} if mode == "disabled" else {}),
+                        messages=[
+                            {"role": "system", "content": system},
+                            {"role": "user", "content": user},
+                        ],
+                    )
+                    choice = resp.choices[0]
+                    content = choice.message.content or ""
+                    finish = getattr(choice, "finish_reason", None)
+                    usage = getattr(resp, "usage", None)
+                    counts = {name: getattr(usage, name, None) for name in (
+                        "prompt_tokens", "completion_tokens", "total_tokens",
+                        "prompt_cache_hit_tokens", "prompt_cache_miss_tokens")}
+                    details = getattr(usage, "completion_tokens_details", None)
+                    counts["reasoning_tokens"] = getattr(details, "reasoning_tokens", None)
+                    log.update(response_model=resp.model, response_id=getattr(resp, "id", None),
+                               finish_reason=finish, usage=counts, response_chars=len(content))
+                    if config.LLM_LOG_RESPONSE:
+                        log["response_text"] = content
+                    logger.info(
+                        "DeepSeek 请求模型=%s，思考模式=%s，响应模型=%s，结束原因=%s；"
+                        "Token 输入=%s 输出=%s 总计=%s；耗时=%.2f秒",
+                        model, mode, resp.model, finish, counts["prompt_tokens"],
+                        counts["completion_tokens"], counts["total_tokens"], time.monotonic() - started,
+                    )
+                    if finish not in (None, "stop"):
+                        raise LLMError(f"模型响应未正常完成：finish_reason={finish}")
+                    if not content.strip():
+                        raise LLMError("模型返回空正文")
                 return content.strip()
             except Exception as exc:  # noqa: BLE001
                 last_err = exc

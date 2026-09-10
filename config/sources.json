@@ -1559,6 +1559,383 @@
       ],
       "max_candidates": 30,
       "feed": ""
+    },
+    {
+      "id": "openai_news",
+      "name": "OpenAI新闻与研究",
+      "name_en": "OpenAI新闻与研究",
+      "country": "US",
+      "type": "organization",
+      "method": "rss",
+      "url": "https://openai.com/news/rss.xml",
+      "homepage": "https://openai.com/",
+      "feed": "https://openai.com/news/rss.xml",
+      "enabled": true,
+      "category_hint": "人工智能安全、评估、治理与社会影响",
+      "priority": 85,
+      "allowed_domains": [
+        "openai.com"
+      ],
+      "include_patterns": [
+        "/index/"
+      ],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 30
+    },
+    {
+      "id": "anthropic_research",
+      "name": "Anthropic研究",
+      "name_en": "Anthropic研究",
+      "country": "US",
+      "type": "organization",
+      "method": "page",
+      "url": "https://www.anthropic.com/research",
+      "homepage": "https://www.anthropic.com/",
+      "feed": "",
+      "enabled": true,
+      "category_hint": "人工智能安全、评估、治理与社会影响",
+      "priority": 85,
+      "allowed_domains": [
+        "anthropic.com"
+      ],
+      "include_patterns": [
+        "/research/"
+      ],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/",
+        "/research/team/"
+      ],
+      "max_candidates": 30
+    },
+    {
+      "id": "anthropic_news",
+      "name": "Anthropic政策与新闻",
+      "name_en": "Anthropic政策与新闻",
+      "country": "US",
+      "type": "organization",
+      "method": "page",
+      "url": "https://www.anthropic.com/news",
+      "homepage": "https://www.anthropic.com/",
+      "feed": "",
+      "enabled": true,
+      "category_hint": "人工智能安全、评估、治理与社会影响",
+      "priority": 85,
+      "allowed_domains": [
+        "anthropic.com"
+      ],
+      "include_patterns": [
+        "/news/"
+      ],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 30
+    },
+    {
+      "id": "anthropic_alignment",
+      "name": "Anthropic对齐研究",
+      "name_en": "Anthropic对齐研究",
+      "country": "US",
+      "type": "organization",
+      "method": "page",
+      "url": "https://alignment.anthropic.com/",
+      "homepage": "https://alignment.anthropic.com/",
+      "feed": "",
+      "enabled": false,
+      "category_hint": "人工智能安全、评估、治理与社会影响",
+      "priority": 85,
+      "allowed_domains": [
+        "alignment.anthropic.com"
+      ],
+      "include_patterns": [
+        "/2026/",
+        "/2025/"
+      ],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 30,
+      "disabled_reason": "2026-09-10 正文可读取，但样本缺少明确发布日期元数据，通用解析误取历史日期；待日期适配"
+    },
+    {
+      "id": "google_deepmind",
+      "name": "Google DeepMind研究动态",
+      "name_en": "Google DeepMind研究动态",
+      "country": "UK",
+      "type": "organization",
+      "method": "page",
+      "url": "https://deepmind.google/blog/",
+      "homepage": "https://deepmind.google/",
+      "feed": "",
+      "enabled": true,
+      "category_hint": "人工智能安全、评估、治理与社会影响",
+      "priority": 85,
+      "allowed_domains": [
+        "deepmind.google"
+      ],
+      "include_patterns": [
+        "/blog/"
+      ],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 30
+    },
+    {
+      "id": "stanford_hai",
+      "name": "斯坦福HAI",
+      "name_en": "斯坦福HAI",
+      "country": "US",
+      "type": "organization",
+      "method": "page",
+      "url": "https://hai.stanford.edu/news",
+      "homepage": "https://hai.stanford.edu/",
+      "feed": "",
+      "enabled": true,
+      "category_hint": "人工智能安全、评估、治理与社会影响",
+      "priority": 85,
+      "allowed_domains": [
+        "hai.stanford.edu"
+      ],
+      "include_patterns": [
+        "/news/"
+      ],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 30
+    },
+    {
+      "id": "metr",
+      "name": "METR模型评估",
+      "name_en": "METR模型评估",
+      "country": "US",
+      "type": "organization",
+      "method": "page",
+      "url": "https://metr.org/blog/",
+      "homepage": "https://metr.org/",
+      "feed": "",
+      "enabled": true,
+      "category_hint": "人工智能安全、评估、治理与社会影响",
+      "priority": 85,
+      "allowed_domains": [
+        "metr.org"
+      ],
+      "include_patterns": [
+        "/blog/"
+      ],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 30
+    },
+    {
+      "id": "apollo_research",
+      "name": "Apollo Research",
+      "name_en": "Apollo Research",
+      "country": "UK",
+      "type": "organization",
+      "method": "page",
+      "url": "https://www.apolloresearch.ai/blog",
+      "homepage": "https://www.apolloresearch.ai/",
+      "feed": "",
+      "enabled": true,
+      "category_hint": "人工智能安全、评估、治理与社会影响",
+      "priority": 85,
+      "allowed_domains": [
+        "apolloresearch.ai"
+      ],
+      "include_patterns": [
+        "/blog/"
+      ],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 30
+    },
+    {
+      "id": "techcrunch_ai",
+      "name": "TechCrunch人工智能",
+      "name_en": "TechCrunch人工智能",
+      "country": "US",
+      "type": "media",
+      "method": "rss",
+      "url": "https://techcrunch.com/category/artificial-intelligence/feed/",
+      "homepage": "https://techcrunch.com/",
+      "feed": "https://techcrunch.com/category/artificial-intelligence/feed/",
+      "enabled": true,
+      "category_hint": "人工智能安全、评估、治理与社会影响",
+      "priority": 75,
+      "allowed_domains": [
+        "techcrunch.com"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 30
+    },
+    {
+      "id": "mit_techreview_ai",
+      "name": "MIT Technology Review人工智能",
+      "name_en": "MIT Technology Review人工智能",
+      "country": "US",
+      "type": "media",
+      "method": "rss",
+      "url": "https://www.technologyreview.com/topic/artificial-intelligence/feed/",
+      "homepage": "https://www.technologyreview.com/",
+      "feed": "https://www.technologyreview.com/topic/artificial-intelligence/feed/",
+      "enabled": true,
+      "category_hint": "人工智能安全、评估、治理与社会影响",
+      "priority": 75,
+      "allowed_domains": [
+        "technologyreview.com"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 30
+    },
+    {
+      "id": "wired_ai",
+      "name": "WIRED人工智能",
+      "name_en": "WIRED人工智能",
+      "country": "US",
+      "type": "media",
+      "method": "rss",
+      "url": "https://www.wired.com/feed/tag/ai/latest/rss",
+      "homepage": "https://www.wired.com/",
+      "feed": "https://www.wired.com/feed/tag/ai/latest/rss",
+      "enabled": true,
+      "category_hint": "人工智能安全、评估、治理与社会影响",
+      "priority": 75,
+      "allowed_domains": [
+        "wired.com"
+      ],
+      "include_patterns": [
+        "/story/"
+      ],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 30
+    },
+    {
+      "id": "huggingface_blog",
+      "name": "Hugging Face研究博客",
+      "name_en": "Hugging Face研究博客",
+      "country": "US",
+      "type": "organization",
+      "method": "rss",
+      "url": "https://huggingface.co/blog/feed.xml",
+      "homepage": "https://huggingface.co/",
+      "feed": "https://huggingface.co/blog/feed.xml",
+      "enabled": true,
+      "category_hint": "人工智能安全、评估、治理与社会影响",
+      "priority": 85,
+      "allowed_domains": [
+        "huggingface.co"
+      ],
+      "include_patterns": [
+        "/blog/"
+      ],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 30
+    },
+    {
+      "id": "lawfare",
+      "name": "Lawfare安全与法律",
+      "name_en": "Lawfare安全与法律",
+      "country": "US",
+      "type": "media",
+      "method": "rss",
+      "url": "https://www.lawfaremedia.org/rss.xml",
+      "homepage": "https://www.lawfaremedia.org/",
+      "feed": "https://www.lawfaremedia.org/rss.xml",
+      "enabled": false,
+      "category_hint": "人工智能安全、评估、治理与社会影响",
+      "priority": 75,
+      "allowed_domains": [
+        "lawfaremedia.org"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 30,
+      "disabled_reason": "2026-09-10 公开RSS返回403；待替换可用入口"
+    },
+    {
+      "id": "govai",
+      "name": "GovAI治理研究",
+      "name_en": "GovAI治理研究",
+      "country": "UK",
+      "type": "organization",
+      "method": "page",
+      "url": "https://www.governance.ai/research",
+      "homepage": "https://www.governance.ai/",
+      "feed": "",
+      "enabled": true,
+      "category_hint": "人工智能安全、评估、治理与社会影响",
+      "priority": 85,
+      "allowed_domains": [
+        "governance.ai"
+      ],
+      "include_patterns": [
+        "/research-paper/",
+        "/post/"
+      ],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 30
     }
   ]
 }

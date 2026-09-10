@@ -6,6 +6,7 @@ import time
 from typing import Any, Iterable
 
 from .. import config, db
+from ..audit import operation
 from ..llm.deepseek import DeepSeekClient
 from .prompts import SYSTEM_PROMPT, build_user_message, validate_decision
 
@@ -37,7 +38,9 @@ def classify_items(client: DeepSeekClient, items: Iterable[dict[str, Any]],
                             "url": item.get("url", ""), "blacklisted": True})
             continue
         try:
-            decision = classify_article(client, item)
+            with operation("classification.article", url=item.get("url")) as log:
+                decision = classify_article(client, item)
+                log["result"] = decision
         except Exception as exc:  # noqa: BLE001
             logger.warning("判定失败 %s: %s", item.get("url"), exc)
             results.append({"in_scope": False, "category": None, "importance": None,

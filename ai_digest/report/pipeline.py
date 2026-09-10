@@ -2,14 +2,17 @@
 from __future__ import annotations
 
 import logging
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Iterable, Optional
 from zipfile import ZIP_DEFLATED, ZipFile
 
 from .. import config
-from ..deliver.emailer import send_email
-from ..filter.classify import classify_items
+from ..deliver.prepared import prepare_mail, send_prepared
+from ..audit import operation
+import uuid
+from .selection import select_materials
 from ..llm.deepseek import DeepSeekClient
 from ..report.docx_builder import build_report_bundle
 from ..report.rank import rank_items
@@ -18,7 +21,7 @@ from ..summarize.run import summarize_article
 logger = logging.getLogger("pipeline")
 
 
-def run_daily_pipeline(
+def _run_daily_pipeline(
     client: DeepSeekClient,
     items: Iterable[dict],
     output_dir: str | Path,
@@ -28,43 +31,54 @@ def run_daily_pipeline(
     date_text: Optional[str] = None,
     date_stamp: Optional[str] = None,
     window_text: Optional[str] = None,
+    window_start: Optional[datetime] = None,
+    history_loader=None,
+    backfill=None,
+    minimum_per_group: Optional[int] = None,
 ) -> dict:
     """生成双合集和原文，并按配置逐个或压缩投递原文。"""
+    started = time.monotonic()
     items = list(items)
-    stats = {"candidates": len(items)}
-
-    # 1) 语义判定
-    decisions = classify_items(client, items)
-    picked: list[dict] = []
-    for it, dec in zip(items, decisions):
-        logger.info("[%s] %s | %s | %s",
-                    "收" if dec["in_scope"] else "剔",
-                    dec.get("category"), dec.get("importance"), dec.get("reason"))
-        if dec["in_scope"]:
-            it["importance"] = dec["importance"]
-            it["category"] = dec["category"]
-            it["decision_reason"] = dec["reason"]
-            picked.append(it)
-    stats["in_scope"] = len(picked)
-
-    # 2) 排序与配额
-    ranked = rank_items(picked, max_items=max_items)
+    minimum = config.REPORT_MIN_PER_GROUP if minimum_per_group is None else minimum_per_group
+    if minimum < 0 or max_items < 2 * minimum:
+        raise ValueError("总篇数上限必须至少为分类保底数量的两倍，保底数量不得为负")
+    with operation("classification", initial_candidates=len(items)) as stage:
+        picked, selection = select_materials(
+            client, items, minimum=minimum, window_start=window_start,
+            history_loader=history_loader, backfill=backfill,
+            max_days=config.REPORT_MAX_EXPANSION_DAYS,
+        )
+        stage.update(selection, in_scope=len(picked))
+    stats = dict(selection, initial_candidates=len(items), in_scope=len(picked))
+    if selection["expansion_days"]:
+        note = (f"向前扩展{selection['expansion_days']}天补足分类配额；"
+                f"实际覆盖起点：{selection['effective_start']:%Y-%m-%d %H:%M}")
+        window_text = f"{window_text}；{note}" if window_text else note
+    ranked = rank_items(picked, max_items=max_items, minimum_per_group=minimum)
     stats["ranked"] = len(ranked)
 
     # 3) 摘要
-    summarized = [summarize_article(client, it) for it in ranked]
+    with operation("summary", articles=len(ranked)) as stage:
+        summary_started = time.monotonic()
+        summarized = [summarize_article(client, it) for it in ranked]
+        summary_seconds = round(time.monotonic() - summary_started, 3)
+        stage["summarized"] = len(summarized)
+        stage["summary_seconds"] = summary_seconds
     stats["summarized"] = len(summarized)
+    stats["summary_seconds"] = summary_seconds
+    logger.info("摘要生成完成：%d 篇，耗时 %.1f 秒", len(summarized), summary_seconds)
 
     # 4) 双合集 + 每篇抓取原文 Word
-    output_dir = Path(output_dir)
+    output_dir = Path(output_dir) / (datetime.now().strftime("%H%M%S") + "_" + uuid.uuid4().hex[:8])
     date_stamp = date_stamp or datetime.now().strftime("%Y%m%d")
-    bundle = build_report_bundle(
-        summarized,
-        output_dir,
-        date_text=date_text or datetime.now().strftime("%Y年%m月%d日"),
-        date_stamp=date_stamp,
-        window_text=window_text,
-    )
+    with operation("report.files"):
+        bundle = build_report_bundle(
+            summarized,
+            output_dir,
+            date_text=date_text or datetime.now().strftime("%Y年%m月%d日"),
+            date_stamp=date_stamp,
+            window_text=window_text,
+        )
     collections = []
     originals = []
     for key in ("media", "institution"):
@@ -84,8 +98,8 @@ def run_daily_pipeline(
     ]
     stats["originals"] = sum(group["count"] for group in bundle.values())
 
-    # 5) 发信（可选）
-    if send:
+    # 准备阶段完成附件打包，发送阶段只读取清单。
+    with operation("mail.prepare") as stage:
         zip_originals = bool(originals) and (
             config.MAIL_ORIGINALS_ZIP
             or len(originals) > config.MAIL_ORIGINALS_ZIP_THRESHOLD
@@ -106,14 +120,25 @@ def run_daily_pipeline(
             attachment_description += "及原文压缩包" if zip_originals else "及逐条原文"
         subject_date = date_text or datetime.now().strftime("%Y-%m-%d")
         subject = f"{config.MAIL_SUBJECT_PREFIX}{subject_date}"
-        send_email(
-            subject,
-            attachment_paths=attachments,
-            text_body=(
-                f"今日摘报共 {len(summarized)} 条：新闻媒体 {stats['media']} 条，"
-                f"机构信息 {stats['institution']} 条。{attachment_description}见附件。"
-            ),
+        manifest = prepare_mail(
+            output_dir, subject,
+            f"今日摘报共 {len(summarized)} 条：新闻媒体 {stats['media']} 条，"
+            f"机构信息 {stats['institution']} 条。{attachment_description}见附件。"
+            + (f"统计窗口：{window_text}。" if window_text else ""),
+            attachments,
         )
+        stats["manifest"] = str(manifest)
+        stage.update(manifest=str(manifest), attachment_count=len(attachments))
+    if send:
+        send_prepared(manifest)
         stats["sent"] = True
 
+    stats["total_seconds"] = round(time.monotonic() - started, 3)
     return stats
+
+
+def run_daily_pipeline(*args, **kwargs):
+    with operation("report") as log:
+        result = _run_daily_pipeline(*args, **kwargs)
+        log.update(result)
+        return result

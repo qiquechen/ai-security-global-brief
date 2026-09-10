@@ -48,7 +48,8 @@ DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
 DEEPSEEK_CHAT_MODEL = os.getenv("DEEPSEEK_CHAT_MODEL", "deepseek-v4-flash")
 DEEPSEEK_THINKING_MODE = os.getenv("DEEPSEEK_THINKING_MODE", "disabled")
 DEEPSEEK_FILTER_THINKING_MODE = os.getenv("DEEPSEEK_FILTER_THINKING_MODE", "disabled")
-DEEPSEEK_SUMMARY_THINKING_MODE = os.getenv("DEEPSEEK_SUMMARY_THINKING_MODE", "enabled")
+DEEPSEEK_SUMMARY_THINKING_MODE = os.getenv("DEEPSEEK_SUMMARY_THINKING_MODE", "disabled")
+LLM_LOG_RESPONSE = os.getenv("LLM_LOG_RESPONSE", "true").strip().lower() not in {"0", "false", "no", ""}
 
 # ---- SMTP ----
 SMTP_HOST = os.getenv("SMTP_HOST", "")
@@ -82,7 +83,7 @@ INGEST_WORKERS = max(1, int(os.getenv("INGEST_WORKERS", "6")))
 REJECTION_RETENTION_DAYS = int(os.getenv("REJECTION_RETENTION_DAYS", "7"))
 if REJECTION_RETENTION_DAYS <= 0:
     raise ValueError("REJECTION_RETENTION_DAYS 必须为正整数")
-# 每日统计窗口在06:00截止，07:00执行生成与投递。
+# 每日统计窗口在06:00截止，06:05提前准备，07:00只投递。
 REPORT_CUTOFF_HOUR = int(os.getenv("REPORT_CUTOFF_HOUR", os.getenv("REPORT_HOUR", "6")))
 REPORT_HOUR = REPORT_CUTOFF_HOUR  # 兼容旧调用方
 DELIVERY_HOUR = int(os.getenv("DELIVERY_HOUR", "7"))
@@ -97,3 +98,12 @@ def has_deepseek_key() -> bool:
 
 def has_smtp_config() -> bool:
     return bool(SMTP_HOST and SMTP_USER and SMTP_PASS)
+
+# 分类保底与历史扩窗；机构加权只影响同重要度内排序。
+REPORT_MIN_PER_GROUP = int(os.getenv("REPORT_MIN_PER_GROUP", "5"))
+REPORT_MAX_EXPANSION_DAYS = int(os.getenv("REPORT_MAX_EXPANSION_DAYS", "30"))
+REPORT_INSTITUTION_WEIGHT = float(os.getenv("REPORT_INSTITUTION_WEIGHT", "1.2"))
+if REPORT_MIN_PER_GROUP < 0 or REPORT_MAX_EXPANSION_DAYS < 0:
+    raise ValueError("材料保底数量和扩窗天数必须为非负数")
+if not 1 <= REPORT_INSTITUTION_WEIGHT <= 2:
+    raise ValueError("机构权重必须在1到2之间")

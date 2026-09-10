@@ -39,12 +39,16 @@ class IngestTests(unittest.TestCase):
         patcher = patch.object(config, "DB_PATH", Path(directory.name) / "test.db")
         patcher.start()
         self.addCleanup(patcher.stop)
+        for key in ("DATA_DIR", "LOG_DIR"):
+            isolated = patch.object(config, key, Path(directory.name))
+            isolated.start()
+            self.addCleanup(isolated.stop)
 
     def test_fused_source_config(self):
         sources = load_sources(config.ROOT / "config" / "sources.json")
-        self.assertEqual(53, len(sources))
-        self.assertEqual(42, sum(source.enabled for source in sources))
-        self.assertEqual(13, sum(source.type == "media" for source in sources))
+        self.assertEqual(67, len(sources))
+        self.assertEqual(54, sum(source.enabled for source in sources))
+        self.assertEqual(17, sum(source.type == "media" for source in sources))
         self.assertTrue(
             {"ars_ai", "bbc_tech", "cbs_tech", "scmp_ai", "japan_times_ai", "independent_ai"}
             <= {source.id for source in sources if source.enabled}
@@ -57,6 +61,19 @@ class IngestTests(unittest.TestCase):
             bbc,
             "https://www.bbc.co.uk/news/articles/example?at_medium=RSS&at_campaign=rss",
         ))
+
+    def test_anthropic_header_date_overrides_guessed_historical_date(self):
+        response = requests.Response()
+        response.url = "https://www.anthropic.com/research/example"
+        response.status_code = 200
+        response.encoding = "utf-8"
+        response._content = b'<article><div class="PostDetail-module__header"><div class="body-3 agate">Sep 4, 2026</div></div><p>Earlier research in 2023.</p></article>'
+        from types import SimpleNamespace
+        with patch("ai_digest.ingest.crawler.trafilatura.extract_metadata", return_value=SimpleNamespace(
+            title="Example", date="2023-11-03", url=response.url
+        )):
+            _, _, published, _ = _extract_article(response, Candidate(response.url))
+        self.assertEqual(datetime(2026, 9, 4, tzinfo=UTC), published)
 
     def test_url_and_time_normalization(self):
         self.assertEqual(
@@ -202,6 +219,8 @@ class IngestTests(unittest.TestCase):
     def test_summary_contract_has_chinese_title_and_plain_body(self):
         class FakeClient:
             def chat_json(self, _system, _user, **kwargs):
+                if "质量审核员" in _system:
+                    return {"complete": True, "faithful": True, "issues": []}
                 return {"zh_title": "人工智能安全评估", "summary": "机构发布了安全评估结果。"}
 
         item = summarize_article(FakeClient(), {"title": "AI safety evaluation"})
@@ -263,6 +282,8 @@ class IngestTests(unittest.TestCase):
     def test_pipeline_sends_all_outputs_once(self):
         class FakeClient:
             def chat_json(self, system, _user, **kwargs):
+                if "质量审核员" in system:
+                    return {"complete": True, "faithful": True, "issues": []}
                 if "筛选官" in system:
                     return {"in_scope": True, "category": "M1", "importance": "high", "reason": "测试"}
                 return {"zh_title": "中文标题", "summary": "客观摘要。"}
@@ -281,12 +302,12 @@ class IngestTests(unittest.TestCase):
             (True, 10, True, True, True),
             (False, 0, True, True, True),
             (True, 0, True, False, False),
-            (True, 0, False, True, False),
+            (True, 0, False, True, True),
         ]
         for enabled, threshold, send, has_originals, zipped in cases:
             with self.subTest(case=(enabled, threshold, send, has_originals)), \
                     tempfile.TemporaryDirectory() as directory, \
-                    patch("ai_digest.report.pipeline.send_email") as mocked_send, \
+                    patch("ai_digest.deliver.prepared.send_email") as mocked_send, \
                     patch.object(config, "MAIL_ORIGINALS_ZIP", enabled), \
                     patch.object(config, "MAIL_ORIGINALS_ZIP_THRESHOLD", threshold):
                 stale_path = Path(directory) / "历史原文.docx"
@@ -297,10 +318,12 @@ class IngestTests(unittest.TestCase):
                         archive.writestr("旧原文.docx", b"stale archive entry")
                 stats = run_daily_pipeline(
                     FakeClient(), items if has_originals else [], directory,
-                    send=send, date_stamp="20260909",
+                    send=send, date_stamp="20260909", minimum_per_group=0,
                 )
                 self.assertEqual(int(has_originals), stats["media"])
                 self.assertEqual(int(has_originals), stats["institution"])
+                batch_dir = Path(stats["manifest"]).parent
+                archive_path = batch_dir / "原文_20260909.zip"
                 self.assertEqual(zipped, archive_path.exists())
                 if not send:
                     mocked_send.assert_not_called()
@@ -316,19 +339,19 @@ class IngestTests(unittest.TestCase):
                     self.assertEqual(archive_path, attachments[-1])
                     self.assertIn("原文压缩包", mocked_send.call_args.kwargs["text_body"])
                     originals = [
-                        p for p in Path(directory).rglob("*.docx")
+                        p for p in batch_dir.rglob("*.docx")
                         if str(p) not in stats["collections"] and p != stale_path
                     ]
                     with ZipFile(archive_path) as archive:
                         self.assertEqual(
-                            {p.relative_to(directory).as_posix() for p in originals},
+                            {p.relative_to(batch_dir).as_posix() for p in originals},
                             set(archive.namelist()),
                         )
                         self.assertIsNone(archive.testzip())
                         for original in originals:
                             self.assertEqual(
                                 original.read_bytes(),
-                                archive.read(original.relative_to(directory).as_posix()),
+                                archive.read(original.relative_to(batch_dir).as_posix()),
                             )
 
     def test_fetcher_switches_to_backup_on_connection_failure(self):

@@ -13,6 +13,8 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from .. import config, db
+from ..audit import operation, event
+from dataclasses import asdict
 from .crawler import (
     FetchError,
     Fetcher,
@@ -40,12 +42,20 @@ def configure_logging(verbose: bool = False) -> None:
         logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 
+class KnownURLs(set):
+    """Keep rejection membership separate from ordinary duplicates."""
+    def __init__(self):
+        super().__init__()
+        self.rejected = set()
+
+
 def _existing_urls_by_source(source_ids: set[str]) -> dict[str, set[str]]:
     """一次查询加载所有来源的已入库 URL，避免每个来源重复打开数据库。"""
-    result: dict[str, set[str]] = defaultdict(set)
+    result: dict[str, set[str]] = defaultdict(KnownURLs)
     rejected = db.active_rejections()
     for source_id in source_ids:
         result[source_id].update(rejected)
+        result[source_id].rejected.update(rejected)
     if not source_ids:
         return result
     placeholders = ",".join("?" for _ in source_ids)
@@ -157,7 +167,7 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: list[str] | None = None) -> int:
+def _main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     configure_logging(args.verbose)
     if args.days <= 0:
@@ -239,6 +249,8 @@ def main(argv: list[str] | None = None) -> int:
                     else:
                         stats.existing += 1
         all_stats.append(stats)
+        event("crawl.source", stats.status, **asdict(stats),
+              articles=[{"url": a.url, "title": a.title} for a in articles])
         logger.info(
             "source=%s status=%s discovered=%d accepted=%d inserted=%d existing=%d "
             "outside=%d missing_time=%d empty=%d errors=%d duration=%.1fs",
@@ -255,8 +267,21 @@ def main(argv: list[str] | None = None) -> int:
     inserted = sum(item.inserted for item in all_stats)
     errors = sum(len(item.errors) for item in all_stats)
     elapsed = time.monotonic() - started
+    event("crawl.result", "completed", inserted=inserted, errors=errors,
+          elapsed_seconds=elapsed, blacklisted=sum(s.blacklisted for s in all_stats),
+          existing=sum(s.existing for s in all_stats),
+          accepted=sum(s.accepted for s in all_stats),
+          window_start=start.isoformat(), window_end=end.isoformat())
     logger.info("采集完成：新增=%d 错误=%d 耗时=%.1f秒", inserted, errors, elapsed)
     return 0 if any(item.status != "failed" for item in all_stats) else 1
+
+
+def main(argv=None):
+    with operation("crawl") as log:
+        code = _main(argv)
+        log["exit_code"] = code
+        log["outcome"] = "success" if code == 0 else "failed"
+        return code
 
 
 if __name__ == "__main__":

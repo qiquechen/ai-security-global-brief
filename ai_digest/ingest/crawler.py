@@ -606,6 +606,11 @@ def _extract_article(response: requests.Response, candidate: Candidate) -> tuple
                     break
     if published is None:
         published = parse_datetime(json_date)
+    # Anthropic文章没有日期meta；只读取文章页头日期，避免正文引用年份被猜成发布日期。
+    if published is None and urlparse(response.url).hostname in {"www.anthropic.com", "anthropic.com"}:
+        date_node = soup.select_one('article [class*="PostDetail"][class*="header"] .agate')
+        if date_node:
+            published = parse_datetime(date_node.get_text(" ", strip=True))
     text = ""
     try:
         text = trafilatura.extract(
@@ -664,12 +669,18 @@ def crawl_source(
         return stats, []
     limit = min(source.max_candidates, max_items) if max_items else source.max_candidates
     by_url: dict[str, Candidate] = {}
+    rejected = getattr(existing_urls, "rejected", set())
+    skipped_rejections = set()
     entry = canonicalize_url(source.url)
     for candidate in raw_candidates:
         url = canonicalize_url(candidate.url)
         if not url or url == entry or not url_allowed(source, url):
             continue
         if candidate.published_hint and not (start <= candidate.published_hint < end):
+            continue
+        if url in rejected:
+            skipped_rejections.add(url)
+            stats.blacklisted = len(skipped_rejections)
             continue
         if url in existing_urls:
             stats.existing += 1
@@ -711,6 +722,10 @@ def crawl_source(
             canonical = canonicalize_url(canonical or response.url)
             if not url_allowed(source, canonical):
                 canonical = canonicalize_url(response.url)
+            if canonical in rejected:
+                skipped_rejections.add(canonical)
+                stats.blacklisted = len(skipped_rejections)
+                continue
             if canonical in existing_urls:
                 stats.existing += 1
                 continue

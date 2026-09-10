@@ -8,12 +8,14 @@ param(
 )
 
 $TaskName = "AIDigestDaily"
+$PrepareTaskName = "AIDigestPrepare"
 $ProjectRoot = (Resolve-Path -LiteralPath $ProjectRoot).Path
 $Python = Join-Path $ProjectRoot ".venv\Scripts\python.exe"
-$Script = Join-Path $ProjectRoot "scripts\run_daily.py"
+$Script = Join-Path $ProjectRoot "scripts\send_ready.py"
 
 if ($Uninstall) {
     schtasks /Delete /TN $TaskName /F 2>$null | Out-Null
+    schtasks /Delete /TN $PrepareTaskName /F 2>$null | Out-Null
     Write-Host "Task '$TaskName' removed (if it existed)."
     exit 0
 }
@@ -27,10 +29,14 @@ if (-not (Test-Path $Script)) {
     exit 1
 }
 
-# Build:  "python.exe" "run_daily.py" --input db --send
-$TaskRun = '"' + $Python + '" "' + $Script + '" --input db --send'
+# Delivery reads the current day ready pointer.
+$TaskRun = '"' + $Python + '" "' + $Script + '"'
 
-# Remove any stale task first, then create.
+$PrepareScript = Join-Path $ProjectRoot "scripts\prepare_daily.py"
+$PrepareRun = '"' + $Python + '" "' + $PrepareScript + '"'
+schtasks /Create /TN $PrepareTaskName /TR $PrepareRun /SC DAILY /ST 06:05 /F
+if ($LASTEXITCODE -ne 0) { exit 1 }
+# Register delivery separately from preparation.
 schtasks /Delete /TN $TaskName /F 2>$null | Out-Null
 schtasks /Create /TN $TaskName /TR $TaskRun /SC DAILY /ST 07:00 /F
 
