@@ -31,6 +31,14 @@ python scripts/demo_h1.py            # 跑通：判定 → 摘要 → 生成双�
 python scripts/demo_h1.py --send     # 全部生成后一次发到 RECIPIENT
 ```
 
+## 测试
+
+```powershell
+python -m unittest discover -s tests
+```
+
+测试全部以标准库 `unittest` 编写（`tests/` 下 8 个文件、50 个用例），**不需要额外安装 pytest**；网络与模型调用均以 mock 替代，可离线运行。
+
 ## H2采集与融合运行
 
 ```powershell
