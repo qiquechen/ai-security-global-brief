@@ -24,6 +24,7 @@ from .crawler import (
     load_sources,
     parse_datetime,
 )
+from .lnc import Crawl4AIBackend
 from .models import CrawlStats, Source
 
 logger = logging.getLogger("ingest.run")
@@ -47,6 +48,7 @@ class KnownURLs(set):
     def __init__(self):
         super().__init__()
         self.rejected = set()
+        self.published_dates: dict[str, str] = {}
 
 
 def _existing_urls_by_source(source_ids: set[str]) -> dict[str, set[str]]:
@@ -66,6 +68,10 @@ def _existing_urls_by_source(source_ids: set[str]) -> dict[str, set[str]]:
         ).fetchall()
     for row in rows:
         result[row["source_id"]].add(canonicalize_url(row["url"]))
+    for row in db.load_crawl_observations(source_ids):
+        result[row["source_id"]].published_dates[
+            canonicalize_url(row["url"])
+        ] = row["published_at"]
     return result
 
 
@@ -76,12 +82,14 @@ def _crawl_one(
     end: datetime,
     existing_urls: set[str],
     max_items: int | None,
+    native_crawler=None,
 ) -> tuple[CrawlStats, list]:
     # requests.Session 不保证线程安全，因此每个任务独立会话，只共享限速状态。
     started = time.monotonic()
     with Fetcher(coordinator) as fetcher:
         stats, articles = crawl_source(
-            source, fetcher, start, end, existing_urls, max_items=max_items
+            source, fetcher, start, end, existing_urls, max_items=max_items,
+            native_crawler=native_crawler,
         )
     stats.elapsed_seconds = time.monotonic() - started
     return stats, articles
@@ -96,6 +104,7 @@ def crawl_sources(
     max_items: int | None = None,
     workers: int = 1,
     coordinator: RequestCoordinator | None = None,
+    native_crawler=None,
 ) -> list[tuple[CrawlStats, list]]:
     """并行抓取不同来源；共享按域名限速，结果由调用方串行入库。"""
     coordinator = coordinator or RequestCoordinator()
@@ -104,7 +113,7 @@ def crawl_sources(
         return [
             _crawl_one(
                 source, coordinator, start, end,
-                existing_by_source.get(source.id, set()), max_items,
+                existing_by_source.get(source.id, set()), max_items, native_crawler,
             )
             for source in sources
         ]
@@ -113,7 +122,7 @@ def crawl_sources(
         futures = {
             pool.submit(
                 _crawl_one, source, coordinator, start, end,
-                existing_by_source.get(source.id, set()), max_items,
+                existing_by_source.get(source.id, set()), max_items, native_crawler,
             ): source
             for source in sources
         }
@@ -159,6 +168,10 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--export", type=Path, help="把本次时间窗内文章导出为 JSONL")
     parser.add_argument("--at", help="测试用当前时间，ISO 8601")
     parser.add_argument("--validate-only", action="store_true", help="只验证来源配置")
+    parser.add_argument(
+        "--disable-lnc", action="store_true",
+        help="本次禁用 Crawl4AI 浏览器增强，仅使用静态抓取",
+    )
     parser.add_argument(
         "--check-connectivity", action="store_true",
         help="验证来源配置并只检测主备网络线路",
@@ -226,10 +239,23 @@ def _main(argv: list[str] | None = None) -> int:
     started = time.monotonic()
     existing_by_source = _existing_urls_by_source({source.id for source in selected})
     logger.info("开始并行采集：workers=%d", min(args.workers, len(selected)))
-    crawled = crawl_sources(
-        selected, start, end, existing_by_source,
-        max_items=args.max_per_source, workers=args.workers, coordinator=coordinator,
-    )
+    native_crawler = None
+    lnc_sources = [source.id for source in selected if source.lnc_mode != "off"]
+    if config.INGEST_LNC_ENABLED and not args.disable_lnc and lnc_sources:
+        try:
+            native_crawler = Crawl4AIBackend()
+            logger.info("Crawl4AI 增强已启用：%s", ", ".join(lnc_sources))
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Crawl4AI 初始化失败，降级为静态采集：%s", exc)
+    try:
+        crawled = crawl_sources(
+            selected, start, end, existing_by_source,
+            max_items=args.max_per_source, workers=args.workers, coordinator=coordinator,
+            native_crawler=native_crawler,
+        )
+    finally:
+        if native_crawler is not None:
+            native_crawler.close()
     for stats, articles in crawled:
         with closing(db.connect()) as conn:
             with conn:
@@ -248,15 +274,26 @@ def _main(argv: list[str] | None = None) -> int:
                         stats.inserted += 1
                     else:
                         stats.existing += 1
+                db.upsert_crawl_observations(
+                    conn, stats.source_id, stats.observed_dates,
+                )
         all_stats.append(stats)
-        event("crawl.source", stats.status, **asdict(stats),
+        stats_payload = asdict(stats)
+        stats_payload.pop("observed_dates", None)
+        event("crawl.source", stats.status, **stats_payload,
               articles=[{"url": a.url, "title": a.title} for a in articles])
         logger.info(
             "source=%s status=%s discovered=%d accepted=%d inserted=%d existing=%d "
-            "outside=%d missing_time=%d empty=%d errors=%d duration=%.1fs",
+            "outside=%d missing_time=%d empty=%d errors=%d duration=%.1fs "
+            "raw=%d url_filtered=%d hint_outside=%d blacklisted=%d "
+            "eligible=%d fetched=%d cached_outside=%d "
+            "lnc=%d/%d recovered=%d",
             stats.source_id, stats.status, stats.discovered, stats.accepted,
             stats.inserted, stats.existing, stats.outside_window,
             stats.missing_time, stats.empty_text, len(stats.errors), stats.elapsed_seconds,
+            stats.raw_discovered, stats.url_filtered, stats.hint_outside,
+            stats.blacklisted, stats.eligible, stats.fetched, stats.cached_outside,
+            stats.lnc_succeeded, stats.lnc_attempted, stats.lnc_recovered,
         )
         for message in stats.errors[:10]:
             logger.warning("source=%s %s", stats.source_id, message)
@@ -267,12 +304,23 @@ def _main(argv: list[str] | None = None) -> int:
     inserted = sum(item.inserted for item in all_stats)
     errors = sum(len(item.errors) for item in all_stats)
     elapsed = time.monotonic() - started
+    url_filtered = sum(s.url_filtered for s in all_stats)
+    hint_outside = sum(s.hint_outside for s in all_stats)
+    blacklisted = sum(s.blacklisted for s in all_stats)
     event("crawl.result", "completed", inserted=inserted, errors=errors,
-          elapsed_seconds=elapsed, blacklisted=sum(s.blacklisted for s in all_stats),
+          elapsed_seconds=elapsed, blacklisted=blacklisted,
+          url_filtered=url_filtered, hint_outside=hint_outside,
           existing=sum(s.existing for s in all_stats),
           accepted=sum(s.accepted for s in all_stats),
+          lnc_attempted=sum(s.lnc_attempted for s in all_stats),
+          lnc_succeeded=sum(s.lnc_succeeded for s in all_stats),
+          lnc_recovered=sum(s.lnc_recovered for s in all_stats),
           window_start=start.isoformat(), window_end=end.isoformat())
-    logger.info("采集完成：新增=%d 错误=%d 耗时=%.1f秒", inserted, errors, elapsed)
+    logger.info(
+        "采集完成：新增=%d 错误=%d url_filtered=%d hint_outside=%d "
+        "blacklisted=%d 耗时=%.1f秒",
+        inserted, errors, url_filtered, hint_outside, blacklisted, elapsed,
+    )
     return 0 if any(item.status != "failed" for item in all_stats) else 1
 
 

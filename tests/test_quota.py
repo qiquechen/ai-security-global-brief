@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 from ai_digest.report.rank import rank_items
+from ai_digest.report.pipeline import _run_daily_pipeline
 from ai_digest.report.selection import select_materials, InsufficientMaterials
 from ai_digest.report.history import backfill_history
 
@@ -21,6 +22,25 @@ def accept(_client, items):
 
 
 class QuotaTests(unittest.TestCase):
+    def test_summary_failures_cannot_drop_a_group_below_minimum(self):
+        picked = [article("media", i) for i in range(5)] + [
+            article("institution", i) for i in range(5)
+        ]
+        selection = {"expansion_days": 0, "effective_start": self.start}
+
+        def summarize(_client, item):
+            if item["source_type"] == "media" and item["url"].endswith("/0"):
+                raise ValueError("review failed")
+            return dict(item, zh_title="标题", summary="摘要。")
+
+        with patch("ai_digest.report.pipeline.select_materials", return_value=(picked, selection)), patch(
+            "ai_digest.report.pipeline.summarize_article", side_effect=summarize
+        ), self.assertRaisesRegex(ValueError, "分类保底数量不足"):
+            _run_daily_pipeline(
+                None, picked, ".", max_items=10, minimum_per_group=5,
+                window_start=self.start,
+            )
+
     def setUp(self):
         temp = tempfile.TemporaryDirectory()
         self.addCleanup(temp.cleanup)

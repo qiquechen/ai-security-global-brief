@@ -468,8 +468,8 @@
       "url": "https://www.heritage.org/rss",
       "homepage": "https://www.heritage.org/",
       "feed": "https://www.heritage.org/rss",
-      "enabled": false,
-      "disabled_reason": "2026-09-13 RSS可读但文章正文页持续403，无法获取正文；待更换入口或代理",
+      "enabled": true,
+      "lnc_mode": "fallback",
       "category_hint": "",
       "priority": 55,
       "allowed_domains": [
@@ -490,8 +490,11 @@
         "/support",
         "/donate"
       ],
-      "max_candidates": 15,
-      "feed": ""
+      "exclude_exact_paths": [
+        "/crime-and-justice/commentary/go-big-then-go-smart-trump-ice-and-the-law-how-skip-the-lefts-pr-trap",
+        "/article/copyright-notice"
+      ],
+      "max_candidates": 15
     },
     {
       "id": "cato",
@@ -587,7 +590,8 @@
         "/press",
         "/media",
         "/support",
-        "/donate"
+        "/donate",
+        "/filtered-grid/"
       ],
       "max_candidates": 15,
       "feed": ""
@@ -605,7 +609,7 @@
       "category_hint": "",
       "priority": 55,
       "allowed_domains": [
-        "wilsoncenter.org"
+        "www.wilsoncenter.org"
       ],
       "include_patterns": [],
       "exclude_patterns": [
@@ -620,7 +624,14 @@
         "/press",
         "/media",
         "/support",
-        "/donate"
+        "/donate",
+        "/person/",
+        "/leadership",
+        "/staff-team",
+        "/mission-statement",
+        "/expert-alumni",
+        "/990-forms",
+        "/distinguished-fellowship"
       ],
       "max_candidates": 15,
       "feed": ""
@@ -720,6 +731,9 @@
         "/media",
         "/support",
         "/donate"
+      ],
+      "exclude_exact_paths": [
+        "/belfer-news/25-years-after-911-look-back"
       ],
       "max_candidates": 15,
       "feed": ""
@@ -968,6 +982,8 @@
       "url": "https://warontherocks.com/",
       "homepage": "https://warontherocks.com/",
       "enabled": true,
+      "lnc_mode": "fallback",
+      "article_url_pattern": "^/(?:cogs-of-war/)?[^/]+/?$",
       "category_hint": "",
       "priority": 55,
       "allowed_domains": [
@@ -986,7 +1002,17 @@
         "/press",
         "/media",
         "/support",
-        "/donate"
+        "/donate",
+        "/account",
+        "/advertising",
+        "/guidelines",
+        "/membership",
+        "/terms-",
+        "/sitemap_",
+        "/author/",
+        "/category/",
+        "/tag/",
+        "/episode/"
       ],
       "max_candidates": 15,
       "feed": ""
@@ -1390,14 +1416,14 @@
       "url": "https://www.theguardian.com/technology/artificialintelligenceai",
       "homepage": "https://www.theguardian.com/",
       "enabled": true,
+      "lnc_mode": "fallback",
+      "article_url_pattern": "^(?!/technology/artificialintelligenceai/).+/20\\d{2}/[a-z]{3}/\\d{1,2}/[^/]+$",
       "category_hint": "人工智能政策、安全与社会影响报道",
       "priority": 75,
       "allowed_domains": [
         "theguardian.com"
       ],
-      "include_patterns": [
-        "/technology/"
-      ],
+      "include_patterns": [],
       "exclude_patterns": [
         "/technology/artificialintelligenceai/",
         "/help/",
@@ -1517,6 +1543,8 @@
       "url": "https://www.japantimes.co.jp/tag/artificial-intelligence/",
       "homepage": "https://www.japantimes.co.jp/tag/artificial-intelligence/",
       "enabled": true,
+      "lnc_mode": "fallback",
+      "article_url_pattern": "^/(?:news|business|commentary)/20\\d{2}/",
       "category_hint": "日本及亚太人工智能政策、安全与社会影响",
       "priority": 72,
       "allowed_domains": [
@@ -1543,6 +1571,8 @@
       "url": "https://www.independent.co.uk/topic/artificial-intelligence",
       "homepage": "https://www.independent.co.uk/",
       "enabled": true,
+      "lnc_mode": "fallback",
+      "article_url_pattern": "\\.html$",
       "category_hint": "人工智能监管、安全、网络风险与社会影响",
       "priority": 74,
       "allowed_domains": [
@@ -1557,6 +1587,9 @@
         "/video/",
         "/service/",
         "/author/"
+      ],
+      "exclude_exact_paths": [
+        "/news/world/americas"
       ],
       "max_candidates": 30,
       "feed": ""
@@ -1910,6 +1943,225 @@
       ],
       "max_candidates": 30,
       "disabled_reason": "2026-09-10 公开RSS返回403；待替换可用入口"
+    },
+    {
+      "id": "the_verge_ai",
+      "name": "The Verge人工智能",
+      "name_en": "The Verge AI",
+      "country": "US",
+      "type": "media",
+      "method": "rss",
+      "url": "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml",
+      "homepage": "https://www.theverge.com/ai-artificial-intelligence",
+      "feed": "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml",
+      "enabled": true,
+      "category_hint": "人工智能政策、安全风险与产业治理",
+      "priority": 78,
+      "allowed_domains": ["theverge.com"],
+      "include_patterns": ["/ai-artificial-intelligence/"],
+      "exclude_patterns": ["/authors/", "/archives/"],
+      "max_candidates": 30
+    },
+    {
+      "id": "ieee_spectrum_ai",
+      "name": "IEEE Spectrum人工智能",
+      "name_en": "IEEE Spectrum AI",
+      "country": "US",
+      "type": "media",
+      "method": "rss",
+      "url": "https://spectrum.ieee.org/feeds/topic/artificial-intelligence.rss",
+      "homepage": "https://spectrum.ieee.org/artificial-intelligence",
+      "feed": "https://spectrum.ieee.org/feeds/topic/artificial-intelligence.rss",
+      "enabled": true,
+      "category_hint": "人工智能安全、标准测评与技术风险",
+      "priority": 80,
+      "allowed_domains": ["spectrum.ieee.org"],
+      "include_patterns": [],
+      "exclude_patterns": ["/feeds/", "/author/", "/tag/"],
+      "max_candidates": 30
+    },
+    {
+      "id": "techpolicy_press",
+      "name": "科技政策出版社",
+      "name_en": "Tech Policy Press",
+      "country": "US",
+      "type": "media",
+      "method": "page",
+      "url": "https://www.techpolicy.press/",
+      "homepage": "https://www.techpolicy.press/",
+      "feed": "",
+      "enabled": true,
+      "category_hint": "人工智能政策、安全治理与数字权利",
+      "priority": 80,
+      "allowed_domains": ["techpolicy.press"],
+      "include_patterns": [],
+      "exclude_patterns": ["/author/", "/topics/", "/category/", "/tag/", "/about/"],
+      "article_url_pattern": "^/[^/]+/?$",
+      "max_candidates": 30
+    },
+    {
+      "id": "rest_of_world",
+      "name": "Rest of World科技动态",
+      "name_en": "Rest of World",
+      "country": "US",
+      "type": "media",
+      "method": "rss",
+      "url": "https://restofworld.org/feed/latest/",
+      "homepage": "https://restofworld.org/",
+      "feed": "https://restofworld.org/feed/latest/",
+      "enabled": true,
+      "category_hint": "全球人工智能治理、社会风险与国际动态",
+      "priority": 76,
+      "allowed_domains": ["restofworld.org"],
+      "include_patterns": [],
+      "exclude_patterns": ["/tag/", "/author/", "/category/", "/feed/"],
+      "article_url_pattern": "^/\\d{4}/[^/]+/?$",
+      "max_candidates": 25
+    },
+    {
+      "id": "google_ai_blog",
+      "name": "Google人工智能动态",
+      "name_en": "Google AI Blog",
+      "country": "US",
+      "type": "organization",
+      "method": "rss",
+      "url": "https://blog.google/innovation-and-ai/technology/ai/rss/",
+      "homepage": "https://blog.google/innovation-and-ai/technology/ai/",
+      "feed": "https://blog.google/innovation-and-ai/technology/ai/rss/",
+      "enabled": true,
+      "category_hint": "人工智能安全、责任治理与政策动态",
+      "priority": 82,
+      "allowed_domains": ["blog.google"],
+      "include_patterns": [],
+      "exclude_patterns": ["/rss/"],
+      "max_candidates": 25
+    },
+    {
+      "id": "mozilla_ai",
+      "name": "Mozilla人工智能博客",
+      "name_en": "Mozilla AI Blog",
+      "country": "US",
+      "type": "organization",
+      "method": "rss",
+      "url": "https://blog.mozilla.ai/rss/",
+      "homepage": "https://blog.mozilla.ai/",
+      "feed": "https://blog.mozilla.ai/rss/",
+      "enabled": true,
+      "category_hint": "开放人工智能生态、安全与责任治理",
+      "priority": 80,
+      "allowed_domains": ["blog.mozilla.ai"],
+      "include_patterns": [],
+      "exclude_patterns": ["/rss/", "/author/", "/tag/"],
+      "max_candidates": 25
+    },
+    {
+      "id": "partnership_ai",
+      "name": "人工智能伙伴关系组织",
+      "name_en": "Partnership on AI",
+      "country": "US",
+      "type": "organization",
+      "method": "rss",
+      "url": "https://partnershiponai.org/feed/",
+      "homepage": "https://partnershiponai.org/",
+      "feed": "https://partnershiponai.org/feed/",
+      "enabled": true,
+      "category_hint": "负责任人工智能、安全治理与国际合作",
+      "priority": 88,
+      "allowed_domains": ["partnershiponai.org"],
+      "include_patterns": [],
+      "exclude_patterns": ["/feed/", "/author/", "/tag/", "/category/"],
+      "max_candidates": 25
+    },
+    {
+      "id": "ai_now",
+      "name": "AI Now研究所",
+      "name_en": "AI Now Institute",
+      "country": "US",
+      "type": "organization",
+      "method": "rss",
+      "url": "https://ainowinstitute.org/feed",
+      "homepage": "https://ainowinstitute.org/",
+      "feed": "https://ainowinstitute.org/feed",
+      "enabled": true,
+      "category_hint": "人工智能监管、问责与社会风险",
+      "priority": 88,
+      "allowed_domains": ["ainowinstitute.org"],
+      "include_patterns": [],
+      "exclude_patterns": ["/feed", "/people/", "/events/"],
+      "max_candidates": 25
+    },
+    {
+      "id": "nist_news",
+      "name": "美国国家标准与技术研究院新闻",
+      "name_en": "NIST News",
+      "country": "US",
+      "type": "gov",
+      "method": "rss",
+      "url": "https://www.nist.gov/news-events/news/rss.xml",
+      "homepage": "https://www.nist.gov/news-events/news",
+      "feed": "https://www.nist.gov/news-events/news/rss.xml",
+      "enabled": true,
+      "category_hint": "人工智能标准、测评、安全与政府治理",
+      "priority": 96,
+      "allowed_domains": ["nist.gov"],
+      "include_patterns": ["/news-events/news/"],
+      "exclude_patterns": ["/rss.xml", "/search"],
+      "max_candidates": 30
+    },
+    {
+      "id": "future_privacy_forum",
+      "name": "未来隐私论坛",
+      "name_en": "Future of Privacy Forum",
+      "country": "US",
+      "type": "organization",
+      "method": "rss",
+      "url": "https://fpf.org/feed/",
+      "homepage": "https://fpf.org/",
+      "feed": "https://fpf.org/feed/",
+      "enabled": true,
+      "category_hint": "人工智能数据安全、隐私与监管",
+      "priority": 84,
+      "allowed_domains": ["fpf.org"],
+      "include_patterns": ["/blog/", "/resource/", "/press-releases/"],
+      "exclude_patterns": ["/feed/", "/author/", "/category/", "/events/"],
+      "max_candidates": 25
+    },
+    {
+      "id": "cdt",
+      "name": "民主与技术中心",
+      "name_en": "Center for Democracy & Technology",
+      "country": "US",
+      "type": "organization",
+      "method": "rss",
+      "url": "https://cdt.org/feed/",
+      "homepage": "https://cdt.org/",
+      "feed": "https://cdt.org/feed/",
+      "enabled": true,
+      "category_hint": "人工智能权利保护、问责与政策监管",
+      "priority": 85,
+      "allowed_domains": ["cdt.org"],
+      "include_patterns": ["/insights/", "/policy/", "/press/"],
+      "exclude_patterns": ["/feed/", "/author/", "/category/", "/events/"],
+      "max_candidates": 25,
+      "lnc_mode": "fallback"
+    },
+    {
+      "id": "eff",
+      "name": "电子前沿基金会",
+      "name_en": "Electronic Frontier Foundation",
+      "country": "US",
+      "type": "organization",
+      "method": "rss",
+      "url": "https://www.eff.org/rss/updates.xml",
+      "homepage": "https://www.eff.org/",
+      "feed": "https://www.eff.org/rss/updates.xml",
+      "enabled": true,
+      "category_hint": "人工智能公民权利、隐私、安全与监管",
+      "priority": 84,
+      "allowed_domains": ["eff.org"],
+      "include_patterns": ["/deeplinks/", "/press/"],
+      "exclude_patterns": ["/rss/", "/about/", "/events/"],
+      "max_candidates": 30
     },
     {
       "id": "govai",

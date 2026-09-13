@@ -1,9 +1,12 @@
 # ===== 密钥与凭据（严禁提交真实值）=====
 .env
 .env.*
+.env-*
 !.env.example
 deepseek_API.txt
 *_API.txt
+*.p12
+*.pfx
 *.pem
 *.key
 credentials.json
@@ -17,9 +20,23 @@ logs/
 *.db-journal
 *.db-wal
 *.db-shm
+*.sqlite
+*.sqlite3
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+*.bak
+*.backup
 report_output/
 tmp/
 *.tmp
+*.pid
+
+# Crawl4AI / Playwright 浏览器缓存与测试产物
+.crawl4ai/
+.playwright/
+playwright-report/
+test-results/
 
 # ===== Python =====
 __pycache__/
@@ -31,9 +48,14 @@ dist/
 build/
 *.egg-info/
 .pytest_cache/
+.tox/
+.nox/
+.hypothesis/
 .mypy_cache/
 .ruff_cache/
 .coverage
+.coverage.*
+coverage.xml
 htmlcov/
 
 # ===== 编辑器与系统文件 =====

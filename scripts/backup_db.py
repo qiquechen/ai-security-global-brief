@@ -6,8 +6,9 @@
 from __future__ import annotations
 
 import os
-import shutil
+import sqlite3
 import sys
+from contextlib import closing
 from datetime import datetime
 from pathlib import Path
 
@@ -25,7 +26,19 @@ def main() -> int:
     dest_dir.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d")
     dest = dest_dir / f"app-{stamp}.db"
-    shutil.copy2(source, dest)  # 同日重复运行则覆盖
+    temporary = dest.with_suffix(".db.tmp")
+    try:
+        if temporary.exists():
+            temporary.unlink()
+        # SQLite backup API 会生成包含 WAL 中已提交事务的一致性快照。
+        with closing(sqlite3.connect(source)) as source_conn, closing(
+            sqlite3.connect(temporary)
+        ) as dest_conn:
+            source_conn.backup(dest_conn)
+        os.replace(temporary, dest)  # 同日重复运行时原子替换
+    finally:
+        if temporary.exists():
+            temporary.unlink()
 
     backups = sorted(dest_dir.glob("app-*.db"))
     for old in backups[:-keep]:

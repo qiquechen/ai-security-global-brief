@@ -14,7 +14,7 @@ from ..audit import operation
 import uuid
 from .selection import select_materials
 from ..llm.deepseek import DeepSeekClient
-from ..report.docx_builder import build_report_bundle
+from ..report.docx_builder import build_report_bundle, collection_group
 from ..report.rank import rank_items
 from ..summarize.run import summarize_article
 
@@ -71,8 +71,21 @@ def _run_daily_pipeline(
         summary_seconds = round(time.monotonic() - summary_started, 3)
         if ranked and not summarized:
             raise ValueError(f"全部 {len(ranked)} 篇摘要均未通过审核，不生成报告")
+        summary_counts = {
+            group: sum(collection_group(item) == group for item in summarized)
+            for group in ("media", "institution")
+        }
+        below_minimum = {
+            group: count for group, count in summary_counts.items() if count < minimum
+        }
+        if below_minimum:
+            detail = "、".join(
+                f"{group}={count}/{minimum}" for group, count in below_minimum.items()
+            )
+            raise ValueError(f"摘要审核后分类保底数量不足：{detail}；不生成不完整报告")
         stage["summarized"] = len(summarized)
         stage["summary_failed"] = failed
+        stage["summary_counts"] = summary_counts
         stage["summary_seconds"] = summary_seconds
     stats["summarized"] = len(summarized)
     stats["summary_seconds"] = summary_seconds

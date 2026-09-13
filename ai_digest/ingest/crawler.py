@@ -22,6 +22,7 @@ import trafilatura
 from bs4 import BeautifulSoup
 
 from .. import config
+from .lnc import NativePage
 from .models import Article, Candidate, CrawlStats, Source
 
 logger = logging.getLogger("ingest")
@@ -162,6 +163,12 @@ def url_allowed(source: Source, value: str) -> bool:
         return False
     if source.include_patterns and not any(marker in path for marker in source.include_patterns):
         return canonicalize_url(value) == canonicalize_url(source.url)
+    if (
+        source.article_url_pattern
+        and canonicalize_url(value) != canonicalize_url(source.url)
+        and re.search(source.article_url_pattern, path) is None
+    ):
+        return False
     return True
 
 
@@ -182,6 +189,17 @@ def load_sources(path: Path) -> list[Source]:
         method = str(item.get("method", "page"))
         if method not in {"rss", "sitemap", "page"}:
             raise ValueError(f"{source_id} method 无效：{method}")
+        lnc_mode = str(item.get("lnc_mode", "off")).strip().lower()
+        if lnc_mode not in {"off", "fallback", "always"}:
+            raise ValueError(f"{source_id} lnc_mode 无效：{lnc_mode}")
+        if lnc_mode == "always" and method != "page":
+            raise ValueError(f"{source_id} 只有 page 来源可使用 lnc_mode=always")
+        article_url_pattern = str(item.get("article_url_pattern", "")).strip()
+        if article_url_pattern:
+            try:
+                re.compile(article_url_pattern)
+            except re.error as exc:
+                raise ValueError(f"{source_id} article_url_pattern 无效：{exc}") from exc
         homepage = str(item.get("homepage", "")).strip()
         feed = str(item.get("feed", "")).strip()
         entry_url = str(item.get("url", "")).strip()
@@ -221,6 +239,8 @@ def load_sources(path: Path) -> list[Source]:
                 max_candidates=max(1, int(item.get("max_candidates", 20))),
                 use_discovered_feed=bool(item.get("use_discovered_feed", False)),
                 priority=int(item.get("priority", 50)),
+                lnc_mode=lnc_mode,
+                article_url_pattern=article_url_pattern,
             )
         )
     return result
@@ -282,21 +302,56 @@ class Fetcher:
         if proxy:
             self.session.proxies.update({"http": proxy, "https": proxy})
 
+    def _probe_route(self, index: int) -> tuple[bool, str]:
+        """在不改变当前线路的前提下验证候选线路是否真的可用。"""
+        target = config.INGEST_CONNECTIVITY_TEST_URL
+        if not target:
+            return True, ""
+        previous_index = self._route_index
+        try:
+            self._apply_route(index)
+            response = self.session.get(
+                target,
+                timeout=min(self.timeout, 10.0),
+                allow_redirects=True,
+            )
+            if response.status_code < 500:
+                return True, ""
+            return False, f"HTTP {response.status_code}"
+        except requests.RequestException as exc:
+            return False, exc.__class__.__name__
+        finally:
+            self._apply_route(previous_index)
+
     def _switch_to_backup(self) -> bool:
-        """当前线路发生连接级故障时切到下一条线路，并保持到进程结束。"""
-        next_index = self._route_index + 1
-        if next_index >= len(self._routes):
-            return False
-        previous = self.active_route_name
-        self._apply_route(next_index)
-        with self.coordinator.lock:
-            self.coordinator.route_index = max(self.coordinator.route_index, next_index)
-        logger.warning("网络线路故障：%s → %s", previous, self.active_route_name)
-        return True
+        """代理自身故障时切到一条已探测可用的其他线路。
+
+        从当前线路之后开始并允许环回主线路。这样备用线路中途失效时不会
+        把共享协调器永久卡在备用线路上。
+        """
+        previous_index = self._route_index
+        indexes = list(range(previous_index + 1, len(self._routes)))
+        indexes.extend(range(0, previous_index))
+        for next_index in indexes:
+            healthy, reason = self._probe_route(next_index)
+            if not healthy:
+                logger.warning(
+                    "候选网络线路不可用：%s (%s)",
+                    self._routes[next_index][0], reason,
+                )
+                continue
+            previous = self.active_route_name
+            self._apply_route(next_index)
+            with self.coordinator.lock:
+                self.coordinator.route_index = next_index
+            logger.warning("网络线路故障：%s → %s", previous, self.active_route_name)
+            return True
+        return False
 
     @staticmethod
-    def _is_connectivity_error(exc: Exception) -> bool:
-        return isinstance(exc, (requests.ConnectionError, requests.Timeout))
+    def _is_route_failure(exc: Exception) -> bool:
+        """只把代理连接失败视为线路故障；站点超时必须隔离在当前来源。"""
+        return isinstance(exc, requests.exceptions.ProxyError)
 
     @staticmethod
     def _is_retryable(exc: Exception) -> bool:
@@ -312,7 +367,7 @@ class Fetcher:
         try:
             return self.session.get(value, **kwargs)
         except requests.RequestException as exc:
-            if self._is_connectivity_error(exc) and self._switch_to_backup():
+            if self._is_route_failure(exc) and self._switch_to_backup():
                 return self.session.get(value, **kwargs)
             raise
 
@@ -322,6 +377,7 @@ class Fetcher:
         if not target:
             return self.active_route_name
         errors: list[str] = []
+        available: list[int] = []
         for index, (name, _proxy) in enumerate(self._routes):
             self._apply_route(index)
             try:
@@ -331,15 +387,25 @@ class Fetcher:
                     allow_redirects=True,
                 )
                 if response.status_code < 500:
-                    with self.coordinator.lock:
-                        self.coordinator.route_index = index
-                    logger.info("网络连通性正常：%s", name)
-                    return name
+                    available.append(index)
+                    continue
                 errors.append(f"{name}=HTTP {response.status_code}")
             except requests.RequestException as exc:
                 errors.append(f"{name}={exc.__class__.__name__}")
-        self._apply_route(0)
-        raise FetchError("主备网络线路均不可用：" + ", ".join(errors))
+        if not available:
+            self._apply_route(0)
+            raise FetchError("主备网络线路均不可用：" + ", ".join(errors))
+        selected = available[0]
+        self._apply_route(selected)
+        with self.coordinator.lock:
+            self.coordinator.route_index = selected
+        if errors:
+            logger.warning("部分网络线路不可用：%s", ", ".join(errors))
+        logger.info(
+            "网络连通性正常：%s（可用%d/%d）",
+            self.active_route_name, len(available), len(self._routes),
+        )
+        return self.active_route_name
 
     def close(self) -> None:
         self.session.close()
@@ -509,11 +575,34 @@ def _page_candidates(html: str, base_url: str) -> tuple[list[Candidate], list[st
         if not title and anchor.find("time") is None:
             continue
         published = None
-        parent = anchor.find_parent(["article", "li", "section", "div"])
-        if parent is not None:
+        # 栏目卡片常有多层 div；只看最近一层会漏掉外层卡片上的发布时间。
+        # 最多向上检查四层，避免误取整页其他文章的日期。
+        parent = anchor
+        for _depth in range(4):
+            parent = parent.parent
+            if parent is None or getattr(parent, "name", None) in {"main", "body", "html"}:
+                break
+            if getattr(parent, "name", None) not in {"article", "li", "section", "div"}:
+                continue
             time_tag = parent.find("time")
             if time_tag is not None:
-                published = parse_datetime(time_tag.get("datetime") or time_tag.get_text(" ", strip=True))
+                published = parse_datetime(
+                    time_tag.get("datetime") or time_tag.get_text(" ", strip=True)
+                )
+                if published:
+                    break
+        if published is None:
+            match = re.search(
+                r"/(20\d{2})/(0?[1-9]|1[0-2])/(0?[1-9]|[12]\d|3[01])(?:/|$)",
+                parsed_url.path,
+            )
+            if match:
+                try:
+                    published = datetime(
+                        *(int(value) for value in match.groups()), tzinfo=UTC
+                    )
+                except ValueError:
+                    pass
         structure_score = 3 if anchor.find_parent("article") else 0
         if anchor.find_parent(["h1", "h2", "h3"]):
             structure_score = max(structure_score, 2)
@@ -526,8 +615,22 @@ def _page_candidates(html: str, base_url: str) -> tuple[list[Candidate], list[st
     return result, list(dict.fromkeys(feeds))
 
 
-def discover(source: Source, fetcher: Fetcher) -> list[Candidate]:
-    response = fetcher.fetch(source, source.url)
+def _native_page_candidates(source: Source, native_crawler) -> list[Candidate]:
+    page = native_crawler.crawl(source.url)
+    links, _feeds = _page_candidates(page.html, page.url)
+    return links
+
+
+def discover(source: Source, fetcher: Fetcher, native_crawler=None) -> list[Candidate]:
+    if native_crawler is not None and source.lnc_mode == "always":
+        return _native_page_candidates(source, native_crawler)
+    try:
+        response = fetcher.fetch(source, source.url)
+    except Exception:
+        if native_crawler is not None and source.lnc_mode == "fallback" and source.method == "page":
+            logger.info("%s 静态入口失败，改用 Crawl4AI 渲染", source.id)
+            return _native_page_candidates(source, native_crawler)
+        raise
     content_type = response.headers.get("content-type", "").lower()
     if source.method == "rss" or "rss" in content_type or "atom" in content_type:
         return _feed_candidates(response.content, response.url)
@@ -553,6 +656,12 @@ def discover(source: Source, fetcher: Fetcher) -> list[Candidate]:
                 links = _feed_candidates(feed.content, feed.url) + links
             except FetchError as exc:
                 logger.warning("自动发现 feed 失败：%s", exc)
+    if native_crawler is not None and source.lnc_mode == "fallback" and len(links) < 3:
+        try:
+            rendered = _native_page_candidates(source, native_crawler)
+            links = rendered + links
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("%s Crawl4AI 入口增强失败：%s", source.id, exc)
     return links
 
 
@@ -653,6 +762,29 @@ def _extract_article(response: requests.Response, candidate: Candidate) -> tuple
     return title, text, published, canonical
 
 
+def _extract_native_article(
+    page: NativePage, candidate: Candidate
+) -> tuple[str, str, datetime | None, str]:
+    """Keep HTML metadata/date parsing but prefer Crawl4AI's pruned Markdown body."""
+    response = type("NativeResponse", (), {"text": page.html, "url": page.url})()
+    title, static_text, published, canonical = _extract_article(response, candidate)
+    metadata = page.metadata
+    if not title:
+        title = str(metadata.get("title") or metadata.get("og:title") or "").strip()
+    if published is None:
+        for key in (
+            "datePublished", "date_published", "published_time", "publication_date", "date"
+        ):
+            published = parse_datetime(str(metadata.get(key) or ""))
+            if published is not None:
+                break
+    markdown = "\n".join(
+        line.rstrip() for line in page.markdown.splitlines() if line.strip()
+    ).strip()
+    text = markdown if len(markdown) >= 180 else static_text
+    return title, text, published, canonical or page.url
+
+
 def crawl_source(
     source: Source,
     fetcher: Fetcher,
@@ -660,23 +792,31 @@ def crawl_source(
     end: datetime,
     existing_urls: set[str],
     max_items: int | None = None,
+    native_crawler=None,
 ) -> tuple[CrawlStats, list[Article]]:
     stats = CrawlStats(source.id)
     try:
-        raw_candidates = discover(source, fetcher)
+        raw_candidates = discover(source, fetcher, native_crawler=native_crawler)
     except Exception as exc:  # noqa: BLE001
         stats.errors.append(f"入口发现失败：{exc}")
         return stats, []
+    stats.raw_discovered = len(raw_candidates)
     limit = min(source.max_candidates, max_items) if max_items else source.max_candidates
     by_url: dict[str, Candidate] = {}
     rejected = getattr(existing_urls, "rejected", set())
+    known_dates = getattr(existing_urls, "published_dates", {})
     skipped_rejections = set()
     entry = canonicalize_url(source.url)
     for candidate in raw_candidates:
         url = canonicalize_url(candidate.url)
         if not url or url == entry or not url_allowed(source, url):
+            stats.url_filtered += 1
             continue
         if candidate.published_hint and not (start <= candidate.published_hint < end):
+            stats.hint_outside += 1
+            stats.observed_dates[url] = candidate.published_hint.replace(
+                microsecond=0
+            ).isoformat()
             continue
         if url in rejected:
             skipped_rejections.add(url)
@@ -685,8 +825,17 @@ def crawl_source(
         if url in existing_urls:
             stats.existing += 1
             continue
+        cached_published = parse_datetime(known_dates.get(url))
+        if (
+            candidate.published_hint is None
+            and cached_published is not None
+            and not (start <= cached_published < end)
+        ):
+            stats.cached_outside += 1
+            continue
         normalized = Candidate(
-            url, candidate.title_hint, candidate.published_hint,
+            url, candidate.title_hint,
+            candidate.published_hint or cached_published,
             candidate.relevance_score or candidate_relevance_score(candidate.title_hint, url),
         )
         previous = by_url.get(url)
@@ -700,11 +849,13 @@ def crawl_source(
             len(previous.title_hint),
         ):
             by_url[url] = normalized
+    stats.eligible = len(by_url)
     candidates = sorted(
         by_url.values(),
         key=lambda item: (
-            item.relevance_score,
+            bool(item.published_hint),
             item.published_hint.timestamp() if item.published_hint else 0,
+            item.relevance_score,
         ),
         reverse=True,
     )[:limit]
@@ -713,15 +864,56 @@ def crawl_source(
     denied_in_a_row = 0
     for candidate in candidates:
         try:
-            response = fetcher.fetch(source, candidate.url)
-            denied_in_a_row = 0
-            if _is_non_html(response.headers.get("content-type", "")):
+            stats.fetched += 1
+            response = None
+            primary_error: Exception | None = None
+            title = text = canonical = ""
+            published = None
+            native_page_url = ""
+            if source.lnc_mode != "always" or native_crawler is None:
+                try:
+                    response = fetcher.fetch(source, candidate.url)
+                    if not _is_non_html(response.headers.get("content-type", "")):
+                        title, text, published, canonical = _extract_article(response, candidate)
+                except Exception as exc:  # noqa: BLE001
+                    primary_error = exc
+            needs_native = (
+                native_crawler is not None
+                and source.lnc_mode in {"fallback", "always"}
+                and (source.lnc_mode == "always" or primary_error is not None or len(text) < 180)
+            )
+            if needs_native:
+                stats.lnc_attempted += 1
+                try:
+                    page = native_crawler.crawl(candidate.url)
+                    native_page_url = page.url
+                    native_result = _extract_native_article(page, candidate)
+                    if len(native_result[1]) >= 180:
+                        title, text, published, canonical = native_result
+                        stats.lnc_succeeded += 1
+                        if primary_error is not None or response is not None:
+                            stats.lnc_recovered += 1
+                        primary_error = None
+                except Exception as native_error:  # noqa: BLE001
+                    logger.warning("%s Crawl4AI 候选失败：%s", source.id, native_error)
+                    if not text:
+                        primary_error = primary_error or native_error
+            if primary_error is not None:
+                raise primary_error
+            if response is not None and _is_non_html(response.headers.get("content-type", "")) and not text:
                 stats.empty_text += 1
                 continue
-            title, text, published, canonical = _extract_article(response, candidate)
-            canonical = canonicalize_url(canonical or response.url)
+            final_url = native_page_url or (
+                response.url if response is not None else candidate.url
+            )
+            canonical = canonicalize_url(canonical or final_url)
             if not url_allowed(source, canonical):
-                canonical = canonicalize_url(response.url)
+                canonical = canonicalize_url(final_url)
+            if published is not None:
+                published = published.astimezone(UTC)
+                published_iso = published.replace(microsecond=0).isoformat()
+                stats.observed_dates[candidate.url] = published_iso
+                stats.observed_dates[canonical] = published_iso
             if canonical in rejected:
                 skipped_rejections.add(canonical)
                 stats.blacklisted = len(skipped_rejections)
@@ -732,7 +924,6 @@ def crawl_source(
             if published is None:
                 stats.missing_time += 1
                 continue
-            published = published.astimezone(UTC)
             if not (start <= published < end):
                 stats.outside_window += 1
                 continue

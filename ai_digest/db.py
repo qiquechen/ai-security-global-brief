@@ -38,6 +38,15 @@ CREATE TABLE IF NOT EXISTS rejected_articles (
     rejected_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_rejected_at ON rejected_articles(rejected_at);
+CREATE TABLE IF NOT EXISTS crawl_observations (
+    source_id     TEXT NOT NULL,
+    url           TEXT NOT NULL,
+    published_at  TEXT NOT NULL,
+    observed_at   TEXT NOT NULL,
+    PRIMARY KEY (source_id, url)
+);
+CREATE INDEX IF NOT EXISTS idx_crawl_observations_source
+    ON crawl_observations(source_id);
 """
 
 
@@ -141,6 +150,47 @@ def insert_article(db: sqlite3.Connection, *, source_id: str, url: str, title: s
         ),
     )
     return cur.rowcount > 0
+
+
+def load_crawl_observations(source_ids: set[str]) -> list[sqlite3.Row]:
+    """读取已确认过发布日期的 URL，供小时任务跳过反复出现的旧文章。"""
+    if not source_ids:
+        return []
+    init_db()
+    placeholders = ",".join("?" for _ in source_ids)
+    with closing(_connect()) as connection:
+        return connection.execute(
+            f"""
+            SELECT source_id, url, published_at
+            FROM crawl_observations
+            WHERE source_id IN ({placeholders})
+            """,
+            tuple(sorted(source_ids)),
+        ).fetchall()
+
+
+def upsert_crawl_observations(
+    connection: sqlite3.Connection,
+    source_id: str,
+    published_dates: dict[str, str],
+) -> None:
+    """保存正文页确认的发布日期；同 URL 后续发现更正时允许更新。"""
+    if not published_dates:
+        return
+    observed_at = datetime.now(UTC).replace(microsecond=0).isoformat()
+    connection.executemany(
+        """
+        INSERT INTO crawl_observations(source_id, url, published_at, observed_at)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(source_id, url) DO UPDATE SET
+            published_at = excluded.published_at,
+            observed_at = excluded.observed_at
+        """,
+        [
+            (source_id, url, published_at, observed_at)
+            for url, published_at in published_dates.items()
+        ],
+    )
 
 
 def load_articles_between(start: datetime, end: datetime) -> list[dict]:
