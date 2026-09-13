@@ -60,9 +60,19 @@ def _run_daily_pipeline(
     # 3) 摘要
     with operation("summary", articles=len(ranked)) as stage:
         summary_started = time.monotonic()
-        summarized = [summarize_article(client, it) for it in ranked]
+        summarized = []
+        failed = []
+        for it in ranked:
+            try:
+                summarized.append(summarize_article(client, it))
+            except Exception as exc:  # 单篇审核不通过不影响整份报告
+                failed.append({"url": it.get("url"), "error": str(exc)})
+                logger.warning("摘要未通过审核，已跳过该篇：%s（%s）", it.get("url"), exc)
         summary_seconds = round(time.monotonic() - summary_started, 3)
+        if ranked and not summarized:
+            raise ValueError(f"全部 {len(ranked)} 篇摘要均未通过审核，不生成报告")
         stage["summarized"] = len(summarized)
+        stage["summary_failed"] = failed
         stage["summary_seconds"] = summary_seconds
     stats["summarized"] = len(summarized)
     stats["summary_seconds"] = summary_seconds

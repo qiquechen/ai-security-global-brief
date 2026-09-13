@@ -64,11 +64,16 @@ python scripts/run_crawl.py
 不会直接删除信息。文章发布日期优先于修改时间和 Feed 时间，数据库同时按 URL
 和正文指纹去重。连续三个文章页返回 401/403 时会提前停止该来源，避免反复请求。
 
-来源清单现有 53 项、启用 42 项。依据 `Bookmarks (1)` 新增 Ars Technica AI、
-BBC科技、CBS News科技、南华早报人工智能专题、日本时报人工智能专题和独立报 AI
-专题；前四项使用 RSS，后两项使用专题页。实测持续返回 403 的 FPRI、The Diplomat、
-The National Interest、OECD AI、NBR、Center for American Progress，以及反复连接
-超时的澳大利亚 AISI 暂停启用；配置仍保留，便于后续替换入口。
+来源清单现有 82 项、启用 63 项、停用 19 项。2026-09-13 本轮新增 15 项（补齐 40 家清单缺项 +
+官方/国际源 + 纽约时报科技），并修复 `independent_ai` 白名单（站点已迁移到
+`the-independent.com`）。同日依据 `scripts/probe_candidates.py` 的探测结果，
+把 `csis`、`chicago_council`、`cato`、`rand`、`heritage` 切换到探测到的可用 RSS 入口：
+前四者已恢复为 success；`heritage` 的 RSS 可正常读取，但文章正文页持续 403、拿不到正文，
+已停用待更换入口。这印证了一点：**切 RSS 只能拿到标题与链接，正文仍要回抓原页面，
+站点若在正文页做反爬，单靠换 feed 救不回来**。
+实测持续 403 或超时的 FPRI、The Diplomat、The National Interest、NBR、
+Center for American Progress、USCBC、Coe AI、UNESCO AI、Lawfare、OpenAI 新闻、
+NYT 科技等暂停启用；配置保留，便于后续替换入口。
 
 正式日报统计窗口为北京时间 `[昨日06:00, 今日06:00)`，06:05提前准备，07:00读取就绪文件发送。
 输出按“新闻媒体信息”和“机构信息”分目录：每类包含1份摘要合集，以及每篇入选

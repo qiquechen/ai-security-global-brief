@@ -44,7 +44,7 @@ class RejectionTests(unittest.TestCase):
                 client.chat_json.side_effect = result
             else:
                 client.chat_json.return_value = result
-            decision = classify_items(client, [self.item], sleep_between=0)[0]
+            decision = classify_items(client, [self.item], sleep_between=0, retry_sleep=0)[0]
             self.assertTrue(decision["classification_error"])
             self.assertEqual(set(), db.active_rejections())
         with closing(db.connect()) as conn:

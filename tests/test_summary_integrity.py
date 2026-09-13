@@ -4,8 +4,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from ai_digest.summarize.prompts import integrity_issues
-from ai_digest.summarize.run import summarize_article
+from ai_digest.summarize.prompts import integrity_issues, year_issues
+from ai_digest.summarize.run import review_passed, summarize_article
 
 PASS = {"complete": True, "faithful": True, "issues": []}
 
@@ -62,3 +62,31 @@ class SummaryIntegrityTests(unittest.TestCase):
             self.assertTrue(integrity_issues({"summary": body}), repr(body))
         for body in ("报告指出：“模型仍有风险。”", "机构发布报告（初稿）。", "短" * 499 + "。"):
             self.assertFalse(integrity_issues({"summary": body}), body)
+
+    def test_year_in_summary_must_exist_in_source(self):
+        # 年份能对上：通过
+        self.assertEqual(
+            [], year_issues({"summary": "机构于2026年发布报告。"}, "Published in 2026."))
+        # 年份是编的：拦截
+        self.assertTrue(
+            year_issues({"summary": "机构于2019年发布报告。"}, "Published in 2026."))
+        # 原文没有年份信息但摘要也未写年份：不误报
+        self.assertEqual([], year_issues({"summary": "机构发布报告。"}, "no year here"))
+        # summary 非字符串时不抛异常
+        self.assertEqual([], year_issues({"summary": None}, "text"))
+        self.assertEqual([], year_issues("not a dict", "text"))
+
+    def test_unsupported_claim_fails_review(self):
+        # 有一条断言无原文依据 → 不通过
+        self.assertFalse(review_passed({
+            "complete": True, "faithful": True, "issues": [],
+            "claims": [{"claim": "a", "verdict": "supported", "evidence": "x"},
+                       {"claim": "b", "verdict": "unsupported", "evidence": "无"}],
+        }))
+        # 全部有依据 → 通过
+        self.assertTrue(review_passed({
+            "complete": True, "faithful": True, "issues": [],
+            "claims": [{"claim": "a", "verdict": "supported", "evidence": "x"}],
+        }))
+        # 兼容旧格式（无 claims 字段）
+        self.assertTrue(review_passed(PASS))

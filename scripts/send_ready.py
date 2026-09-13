@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from ai_digest import config
+from ai_digest.alerts import send_alert
 from ai_digest.audit import format_duration, operation
 from ai_digest.deliver.prepared import load_prepared, send_prepared
 
@@ -46,4 +47,9 @@ def _manifest_path(ready: Path) -> Path:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as exc:  # noqa: BLE001
+        print(f"发送失败：{type(exc).__name__}: {exc}", file=sys.stderr)
+        send_alert("发送阶段失败", f"{type(exc).__name__}: {exc}")
+        sys.exit(1)

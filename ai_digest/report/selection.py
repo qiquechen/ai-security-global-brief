@@ -36,7 +36,12 @@ def select_materials(client, items, *, minimum, window_start=None,
         stats["candidates"] += len(batch)
         stats["blacklisted"] += sum(bool(d.get("blacklisted")) for d in decisions)
         if len(decisions) != len(batch) or any(d.get("classification_error") for d in decisions):
-            raise ValueError("部分文章判定失败；本次不发布不完整邮件包")
+            bad = [d.get("url", "?") for d in decisions
+                   if d.get("classification_error")] or ["返回数量与候选不符"]
+            raise ValueError(
+                f"部分文章判定失败（{len(bad)}/{len(batch)} 篇，重试后仍失败）；"
+                f"本次不发布不完整邮件包，请稍后手动重跑。失败条目：" + "、".join(bad[:5])
+            )
         for item, decision in zip(batch, decisions):
             if decision["in_scope"]:
                 picked.append(dict(item, importance=decision["importance"],

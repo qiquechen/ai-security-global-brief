@@ -27,10 +27,11 @@ def classify_article(client: DeepSeekClient, item: dict[str, Any]) -> dict[str, 
 
 
 def classify_items(client: DeepSeekClient, items: Iterable[dict[str, Any]],
-                   sleep_between: float = 0.3) -> list[dict[str, Any]]:
-    """批量判定（MVP 顺序执行即可；量大后再并发化）。"""
+                   sleep_between: float = 0.3, retry_sleep: float = 3.0) -> list[dict[str, Any]]:
+    """批量判定；对调用失败的条目在整批结束后重试一次，降低网络抖动误伤。"""
     results = []
     rejected = db.active_rejections()
+    failed_index = []
     for item in items:
         key = db.rejection_key(item.get("url", ""))
         if key and key in rejected:
@@ -43,6 +44,7 @@ def classify_items(client: DeepSeekClient, items: Iterable[dict[str, Any]],
                 log["result"] = decision
         except Exception as exc:  # noqa: BLE001
             logger.warning("判定失败 %s: %s", item.get("url"), exc)
+            failed_index.append((len(results), item, exc))
             results.append({"in_scope": False, "category": None, "importance": None,
                             "reason": f"调用失败：{exc}", "url": item.get("url", ""),
                             "classification_error": True})
@@ -55,4 +57,22 @@ def classify_items(client: DeepSeekClient, items: Iterable[dict[str, Any]],
             results.append(decision)
         if sleep_between:
             time.sleep(sleep_between)
+
+    # 失败重试一次：应对瞬时网络抖动
+    if failed_index:
+        logger.info("对 %d 篇判定失败的条目重试一次", len(failed_index))
+        if retry_sleep:
+            time.sleep(retry_sleep)
+        for index, item, first_error in failed_index:
+            try:
+                with operation("classification.retry", url=item.get("url")) as log:
+                    decision = classify_article(client, item)
+                    log["result"] = decision
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("判定重试仍失败 %s: %s", item.get("url"), exc)
+                continue
+            if decision["in_scope"] is False:
+                db.reject_article(item, decision.get("reason", ""))
+            results[index] = decision
+            logger.info("重试成功：%s", item.get("url", ""))
     return results
