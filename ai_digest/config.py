@@ -78,6 +78,20 @@ INGEST_CONNECTIVITY_CHECK = os.getenv(
     "INGEST_CONNECTIVITY_CHECK", "true"
 ).lower() not in {"0", "false", "no"}
 INGEST_WORKERS = max(1, int(os.getenv("INGEST_WORKERS", "6")))
+INGEST_LNC_ENABLED = os.getenv("INGEST_LNC_ENABLED", "true").lower() not in {
+    "0", "false", "no", ""
+}
+INGEST_LNC_START_TIMEOUT = max(10.0, float(os.getenv("INGEST_LNC_START_TIMEOUT", "45")))
+INGEST_LNC_PAGE_TIMEOUT_MS = max(
+    5000, int(os.getenv("INGEST_LNC_PAGE_TIMEOUT_MS", "35000"))
+)
+INGEST_LNC_RENDER_DELAY = max(0.0, float(os.getenv("INGEST_LNC_RENDER_DELAY", "0.5")))
+INGEST_LNC_PRUNING_THRESHOLD = min(
+    1.0, max(0.0, float(os.getenv("INGEST_LNC_PRUNING_THRESHOLD", "0.48")))
+)
+INGEST_LNC_SCAN_FULL_PAGE = os.getenv(
+    "INGEST_LNC_SCAN_FULL_PAGE", "false"
+).lower() not in {"0", "false", "no", ""}
 
 # ---- 出报 ----
 REJECTION_RETENTION_DAYS = int(os.getenv("REJECTION_RETENTION_DAYS", "7"))

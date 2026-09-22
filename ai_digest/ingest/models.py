@@ -25,6 +25,10 @@ class Source:
     max_candidates: int = 20
     use_discovered_feed: bool = False
     priority: int = 50
+    # off: requests only; fallback: use Crawl4AI after static failure/weak body;
+    # always: browser-render entry and article pages.
+    lnc_mode: str = "off"
+    article_url_pattern: str = ""
 
 
 @dataclass(frozen=True)
@@ -50,7 +54,13 @@ class Article:
 class CrawlStats:
     source_id: str
     elapsed_seconds: float = 0.0
+    raw_discovered: int = 0
+    url_filtered: int = 0
+    hint_outside: int = 0
+    eligible: int = 0
     discovered: int = 0
+    fetched: int = 0
+    cached_outside: int = 0
     accepted: int = 0
     inserted: int = 0
     existing: int = 0
@@ -58,7 +68,12 @@ class CrawlStats:
     outside_window: int = 0
     missing_time: int = 0
     empty_text: int = 0
+    lnc_attempted: int = 0
+    lnc_succeeded: int = 0
+    lnc_recovered: int = 0
     errors: list[str] = field(default_factory=list)
+    # 运行结束后由主线程持久化；审计事件会主动移除此内部明细。
+    observed_dates: dict[str, str] = field(default_factory=dict, repr=False)
 
     @property
     def status(self) -> str:

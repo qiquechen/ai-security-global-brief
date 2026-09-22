@@ -4,21 +4,24 @@ import threading
 import unittest
 from datetime import UTC, datetime
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 from zipfile import ZipFile
 
 import requests
 
 from ai_digest import config, db
 from ai_digest.ingest.crawler import (
+    FetchError,
     Fetcher,
     _extract_article,
+    _page_candidates,
     canonicalize_url,
     crawl_source,
     load_sources,
     parse_datetime,
     url_allowed,
 )
+from ai_digest.ingest.lnc import NativePage, _proxy_config
 from ai_digest.ingest.models import Candidate, CrawlStats
 from ai_digest.ingest.run import crawl_sources
 from ai_digest.report.docx_builder import (
@@ -47,12 +50,30 @@ class IngestTests(unittest.TestCase):
     def test_fused_source_config(self):
         sources = load_sources(config.ROOT / "config" / "sources.json")
         # 只做下限/包含断言，避免每次增源都要同步改测试
-        self.assertGreaterEqual(len(sources), 67)
-        self.assertGreaterEqual(sum(source.enabled for source in sources), 40)
-        self.assertGreaterEqual(sum(source.type == "media" for source in sources), 17)
+        self.assertGreaterEqual(len(sources), 94)
+        self.assertGreaterEqual(sum(source.enabled for source in sources), 76)
+        self.assertGreaterEqual(sum(source.type == "media" for source in sources), 22)
         self.assertTrue(
             {"ars_ai", "bbc_tech", "cbs_tech", "scmp_ai", "japan_times_ai", "independent_ai"}
             <= {source.id for source in sources if source.enabled}
+        )
+        self.assertTrue(
+            {
+                "the_verge_ai", "ieee_spectrum_ai", "techpolicy_press",
+                "rest_of_world", "google_ai_blog", "mozilla_ai",
+                "partnership_ai", "ai_now", "nist_news",
+                "future_privacy_forum", "cdt", "eff",
+            }
+            <= {source.id for source in sources if source.enabled}
+        )
+        self.assertTrue(
+            {
+                "uscc", "select_ccp", "pew", "ppi", "chicago_council",
+                "asia_society", "uscbc", "mckinsey_gi", "ncafp",
+                "japan_aisi", "gpai", "coe_ai", "unesco_ai", "uk_dsit",
+                "nyt_tech",
+            }
+            <= {source.id for source in sources}
         )
         aisi = next(source for source in sources if source.id == "aisi_uk")
         self.assertTrue(url_allowed(aisi, "https://www.aisi.gov.uk/research/example"))
@@ -61,6 +82,68 @@ class IngestTests(unittest.TestCase):
         self.assertTrue(url_allowed(
             bbc,
             "https://www.bbc.co.uk/news/articles/example?at_medium=RSS&at_campaign=rss",
+        ))
+        independent = next(source for source in sources if source.id == "independent_ai")
+        self.assertEqual("fallback", independent.lnc_mode)
+        self.assertTrue(url_allowed(
+            independent,
+            "https://www.the-independent.com/tech/ai-safety-example.html",
+        ))
+        self.assertFalse(url_allowed(
+            independent,
+            "https://www.independent.co.uk/news/world/americas",
+        ))
+        japan_times = next(source for source in sources if source.id == "japan_times_ai")
+        self.assertFalse(url_allowed(
+            japan_times,
+            "https://www.japantimes.co.jp/news/japan",
+        ))
+        self.assertTrue(url_allowed(
+            japan_times,
+            "https://www.japantimes.co.jp/news/2026/09/13/japan/ai-policy",
+        ))
+        guardian = next(source for source in sources if source.id == "guardian_ai")
+        self.assertTrue(url_allowed(
+            guardian,
+            "https://www.theguardian.com/law/commentisfree/2026/sep/13/ai-human-rights",
+        ))
+        self.assertFalse(url_allowed(
+            guardian,
+            "https://www.theguardian.com/technology/artificialintelligenceai/2026/sep/13/all",
+        ))
+        war_on_the_rocks = next(
+            source for source in sources if source.id == "war_on_the_rocks"
+        )
+        self.assertTrue(url_allowed(
+            war_on_the_rocks,
+            "https://warontherocks.com/cogs-of-war/commanding-autonomous-aircraft/",
+        ))
+        self.assertFalse(url_allowed(
+            war_on_the_rocks,
+            "https://warontherocks.com/category/commentary/",
+        ))
+        wilson = next(source for source in sources if source.id == "wilson_center")
+        self.assertFalse(url_allowed(wilson, "https://digitalarchive.wilsoncenter.org/"))
+        heritage = next(source for source in sources if source.id == "heritage")
+        self.assertFalse(url_allowed(
+            heritage, "https://www.heritage.org/article/copyright-notice",
+        ))
+        hudson = next(source for source in sources if source.id == "hudson")
+        self.assertFalse(url_allowed(
+            hudson, "https://www.hudson.org/filtered-grid/select-term/topics/204/52473",
+        ))
+        belfer = next(source for source in sources if source.id == "belfer")
+        self.assertFalse(url_allowed(
+            belfer,
+            "https://www.belfercenter.org/belfer-news/25-years-after-911-look-back",
+        ))
+        techpolicy = next(source for source in sources if source.id == "techpolicy_press")
+        self.assertTrue(url_allowed(
+            techpolicy,
+            "https://techpolicy.press/the-internet-was-built-for-human-agency-ai-agents-are-changing-the-rules",
+        ))
+        self.assertFalse(url_allowed(
+            techpolicy, "https://techpolicy.press/topics/artificial-intelligence",
         ))
 
     def test_anthropic_header_date_overrides_guessed_historical_date(self):
@@ -177,6 +260,97 @@ class IngestTests(unittest.TestCase):
         self.assertEqual(1, stats.existing)
         self.assertEqual(1, len(articles))
 
+    def test_cached_old_candidate_skips_repeated_article_request(self):
+        from ai_digest.ingest.run import KnownURLs
+
+        source = next(
+            source for source in load_sources(config.ROOT / "config" / "sources.json")
+            if source.id == "ars_ai"
+        )
+        old_url = "https://arstechnica.com/ai/2026/09/old-story"
+        known = KnownURLs()
+        known.published_dates[old_url] = "2026-09-01T00:00:00+00:00"
+        fetcher = Mock()
+        with patch(
+            "ai_digest.ingest.crawler.discover",
+            return_value=[Candidate(old_url, "Old AI story")],
+        ):
+            stats, articles = crawl_source(
+                source, fetcher,
+                datetime(2026, 9, 10, tzinfo=UTC),
+                datetime(2026, 9, 12, tzinfo=UTC),
+                known,
+            )
+        fetcher.fetch.assert_not_called()
+        self.assertEqual([], articles)
+        self.assertEqual(1, stats.cached_outside)
+        self.assertEqual(0, stats.fetched)
+
+    def test_prefetch_elimination_reasons_are_counted(self):
+        source = next(
+            source for source in load_sources(config.ROOT / "config" / "sources.json")
+            if source.id == "ars_ai"
+        )
+        rejected = "https://arstechnica.com/ai/2026/09/rejected"
+        outside = "https://arstechnica.com/ai/2026/09/old"
+        existing = type("Known", (set,), {})()
+        existing.rejected = {rejected}
+        existing.published_dates = {}
+        with patch(
+            "ai_digest.ingest.crawler.discover",
+            return_value=[
+                Candidate("https://example.com/not-allowed", "Wrong domain"),
+                Candidate(outside, "Old", datetime(2026, 9, 1, tzinfo=UTC)),
+                Candidate(rejected, "Rejected"),
+            ],
+        ):
+            stats, articles = crawl_source(
+                source, Mock(),
+                datetime(2026, 9, 10, tzinfo=UTC),
+                datetime(2026, 9, 12, tzinfo=UTC),
+                existing,
+            )
+        self.assertEqual([], articles)
+        self.assertEqual(1, stats.url_filtered)
+        self.assertEqual(1, stats.hint_outside)
+        self.assertEqual(1, stats.blacklisted)
+        self.assertEqual(0, stats.eligible)
+
+    def test_cached_date_inside_backfill_window_is_not_skipped(self):
+        from ai_digest.ingest.run import KnownURLs
+
+        source = next(
+            source for source in load_sources(config.ROOT / "config" / "sources.json")
+            if source.id == "ars_ai"
+        )
+        url = "https://arstechnica.com/ai/2026/09/historical-story"
+        known = KnownURLs()
+        known.published_dates[url] = "2026-09-01T00:00:00+00:00"
+        response = type("Response", (), {
+            "headers": {"content-type": "text/html"}, "url": url, "text": "",
+        })()
+        fetcher = Mock()
+        fetcher.fetch.return_value = response
+        with patch(
+            "ai_digest.ingest.crawler.discover",
+            return_value=[Candidate(url, "Historical AI story")],
+        ), patch(
+            "ai_digest.ingest.crawler._extract_article",
+            return_value=(
+                "Historical AI story", "body " * 100,
+                datetime(2026, 9, 1, tzinfo=UTC), url,
+            ),
+        ):
+            stats, articles = crawl_source(
+                source, fetcher,
+                datetime(2026, 9, 1, tzinfo=UTC),
+                datetime(2026, 9, 2, tzinfo=UTC),
+                known,
+            )
+        fetcher.fetch.assert_called_once_with(source, url)
+        self.assertEqual(1, len(articles))
+        self.assertEqual(0, stats.cached_outside)
+
     def test_article_published_time_beats_modified_and_feed_time(self):
         html = """
         <html><head>
@@ -196,6 +370,67 @@ class IngestTests(unittest.TestCase):
             Candidate("https://example.com/story", published_hint=datetime(2026, 9, 8, tzinfo=UTC)),
         )
         self.assertEqual(datetime(2026, 9, 7, 2, tzinfo=UTC), published)
+
+    def test_page_candidates_find_outer_card_and_url_dates(self):
+        html = """
+        <main>
+          <article><time datetime="2026-09-11T03:00:00Z"></time>
+            <div><h2><a href="/news/outer-date">AI safety</a></h2></div>
+          </article>
+          <div><a href="/2026/09/10/url-date/story">AI policy</a></div>
+        </main>
+        """
+        candidates, _feeds = _page_candidates(html, "https://example.com/")
+        by_url = {candidate.url: candidate for candidate in candidates}
+        self.assertEqual(
+            datetime(2026, 9, 11, 3, tzinfo=UTC),
+            by_url["https://example.com/news/outer-date"].published_hint,
+        )
+        self.assertEqual(
+            datetime(2026, 9, 10, tzinfo=UTC),
+            by_url["https://example.com/2026/09/10/url-date/story"].published_hint,
+        )
+
+    def test_crawl4ai_recovers_static_403_with_pruned_markdown(self):
+        source = next(
+            source for source in load_sources(config.ROOT / "config" / "sources.json")
+            if source.id == "independent_ai"
+        )
+        url = "https://www.independent.co.uk/tech/ai-safety-policy.html"
+        fetcher = Mock()
+        fetcher.fetch.side_effect = FetchError("blocked", status_code=403)
+        native = Mock()
+        native.crawl.return_value = NativePage(
+            url=url,
+            html=(
+                '<html><head><meta property="og:title" content="AI safety policy">'
+                '<meta property="article:published_time" content="2026-09-12T03:00:00Z">'
+                f'<link rel="canonical" href="{url}"></head><body></body></html>'
+            ),
+            markdown="# AI safety policy\n\n" + "Evidence about AI safety governance. " * 20,
+            status_code=200,
+        )
+        with patch(
+            "ai_digest.ingest.crawler.discover",
+            return_value=[Candidate(url, "AI safety policy")],
+        ):
+            stats, articles = crawl_source(
+                source, fetcher,
+                datetime(2026, 9, 12, tzinfo=UTC),
+                datetime(2026, 9, 13, tzinfo=UTC),
+                set(), native_crawler=native,
+            )
+        self.assertEqual(1, len(articles))
+        self.assertTrue(articles[0].text.startswith("# AI safety policy"))
+        self.assertEqual(1, stats.lnc_attempted)
+        self.assertEqual(1, stats.lnc_succeeded)
+        self.assertEqual(1, stats.lnc_recovered)
+
+    def test_proxy_credentials_are_not_embedded_in_server_address(self):
+        value = _proxy_config("http://user:p%40ss@proxy.example:8080")
+        self.assertEqual("http://proxy.example:8080", value["server"])
+        self.assertEqual("user", value["username"])
+        self.assertEqual("p@ss", value["password"])
 
     def test_sources_can_crawl_concurrently(self):
         sources = load_sources(config.ROOT / "config" / "sources.json")[:2]
@@ -365,7 +600,7 @@ class IngestTests(unittest.TestCase):
 
             def get(self, _url, **_kwargs):
                 if self.proxies.get("https") == "http://primary.test:1":
-                    raise requests.ConnectionError("primary down")
+                    raise requests.exceptions.ProxyError("primary down")
                 return FakeResponse()
 
             def close(self):
@@ -380,6 +615,53 @@ class IngestTests(unittest.TestCase):
             response = fetcher._get_with_failover("https://example.com", timeout=1)
             self.assertEqual(204, response.status_code)
             self.assertEqual("备用线路", fetcher.active_route_name)
+
+    def test_fetcher_does_not_switch_routes_for_site_timeout(self):
+        class FakeSession:
+            def __init__(self):
+                self.proxies = {}
+
+            def get(self, _url, **_kwargs):
+                raise requests.ReadTimeout("site too slow")
+
+            def close(self):
+                pass
+
+        with patch.object(config, "PROXY_PRIMARY", "http://primary.test:1"), patch.object(
+            config, "PROXY_BACKUP", "http://backup.test:2"
+        ):
+            fetcher = Fetcher()
+            fetcher.session = FakeSession()
+            fetcher._apply_route(0)
+            with self.assertRaises(requests.ReadTimeout):
+                fetcher._get_with_failover("https://slow.example.com", timeout=1)
+            self.assertEqual("主线路", fetcher.active_route_name)
+            self.assertEqual(0, fetcher.coordinator.route_index)
+
+    def test_fetcher_keeps_current_route_when_backup_probe_fails(self):
+        class FakeSession:
+            def __init__(self):
+                self.proxies = {}
+
+            def get(self, _url, **_kwargs):
+                proxy = self.proxies.get("https")
+                if proxy == "http://primary.test:1":
+                    raise requests.exceptions.ProxyError("primary down")
+                raise requests.exceptions.ProxyError("backup down")
+
+            def close(self):
+                pass
+
+        with patch.object(config, "PROXY_PRIMARY", "http://primary.test:1"), patch.object(
+            config, "PROXY_BACKUP", "http://backup.test:2"
+        ):
+            fetcher = Fetcher()
+            fetcher.session = FakeSession()
+            fetcher._apply_route(0)
+            with self.assertRaises(requests.exceptions.ProxyError):
+                fetcher._get_with_failover("https://example.com", timeout=1)
+            self.assertEqual("主线路", fetcher.active_route_name)
+            self.assertEqual(0, fetcher.coordinator.route_index)
 
     def test_daily_window_closes_at_six_for_seven_oclock_delivery(self):
         local = datetime.fromisoformat("2026-09-09T07:00:00+08:00")

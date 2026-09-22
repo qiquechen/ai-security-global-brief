@@ -37,7 +37,7 @@ python scripts/demo_h1.py --send     # 全部生成后一次发到 RECIPIENT
 python -m unittest discover -s tests
 ```
 
-测试全部以标准库 `unittest` 编写（`tests/` 下 8 个文件、50 个用例），**不需要额外安装 pytest**；网络与模型调用均以 mock 替代，可离线运行。
+测试全部以标准库 `unittest` 编写（当前 59 个用例），**不需要额外安装 pytest**；网络与模型调用均以 mock 替代，可离线运行。
 
 ## H2采集与融合运行
 
@@ -51,6 +51,9 @@ python -m ai_digest.ingest.run --source aisi_uk --days 60 --max-per-source 3 --e
 # 默认6路并行；可按网络和代理容量调整
 python -m ai_digest.ingest.run --days 2 --workers 8
 
+# 对照测试：临时关闭 Crawl4AI 增强
+python -m ai_digest.ingest.run --days 2 --disable-lnc
+
 # H1从真实数据库执行判定→摘要→双合集/逐条原文DOCX（测试时不发邮件）
 python scripts/run_daily.py --input db --hours 1440
 
@@ -60,30 +63,57 @@ python scripts/run_crawl.py
 
 采集侧默认遵守域名白名单与 `robots.txt`，同域请求间隔0.3秒，读取 `.env`
 中的 `PROXY_PRIMARY`/`PROXY_BACKUP`；旧 `PROXY` 始终作为末级兜底线路，
-避免主备都失效时整次采集失败。启动时会做连通性检测，主线路发生连接、代理或
-超时故障时自动切换下一条线路。`robots.txt` 能读取时会严格执行禁抓规则；
+避免主备都失效时整次采集失败。启动时会检测所有配置线路；只有明确的代理连接
+故障才会切换到已探测可用的其他线路，单个站点超时不会触发全局切线。`robots.txt`
+能读取时会严格执行禁抓规则；
 无法读取（超时/SSL/5xx）时默认放行并告警（可设 `INGEST_ROBOTS_FAIL_CLOSED=true`
 改回 fail-closed）。来源失败会写入 `logs/`，不会中断其他来源；4xx 结果不重试，
 只对连接/超时/429/5xx 退避重试。语义筛选仍由H1执行。
 
+对于静态 HTML 经常返回空正文或 403 的来源，`sources.json` 可设置
+`"lnc_mode": "fallback"`：系统先走原有轻量请求，失败或正文不足 180 字符时，
+再由 Crawl4AI 的 Chromium 渲染网页、清洗 DOM，并以 PruningContentFilter 生成
+精简 Markdown；后续仍交给现有 LLM 做收录判断和结构化摘要。`"always"` 会让 page
+类型来源的入口与文章页都使用浏览器，`"off"`（默认）不启用。当前仅对 Heritage、
+War on the Rocks、卫报 AI、日本时报 AI、独立报 AI 和 CDT 开启 fallback。运行日志中的
+`lnc=成功/尝试 recovered=静态失败后救回` 可用于评估实际增量。
+逐源日志还会打印 `url_filtered`（域名、路径规则或文章 URL 规则淘汰）、
+`hint_outside`（Feed/列表页已给出日期且不在本次窗口）和 `blacklisted`
+（命中有效剔除记录）三项预抓取计数；采集结束行会打印三项总数。
+对专题页还可用 `article_url_pattern`（正则表达式）限定文章 URL，防止栏目页被误当
+作正文；该约束在请求文章页之前执行，不额外消耗网络或模型额度。
+
+首次部署需在安装依赖后初始化浏览器：
+
+```powershell
+pip install -r requirements.txt
+crawl4ai-setup
+```
+
+可用 `INGEST_LNC_ENABLED=false` 全局关闭；超时、渲染等待、正文裁剪阈值和整页滚动
+分别由 `INGEST_LNC_PAGE_TIMEOUT_MS`、`INGEST_LNC_RENDER_DELAY`、
+`INGEST_LNC_PRUNING_THRESHOLD`、`INGEST_LNC_SCAN_FULL_PAGE` 调整。Crawl4AI 不可用
+时会明确告警并降级到原静态采集链路，不影响其他来源。
+
 采集默认通过 `INGEST_WORKERS=6` 并行处理不同来源；同一域名仍共享
 `INGEST_REQUEST_INTERVAL` 限速和 robots 缓存。候选链接先排除已入库 URL，再按
-标题、路径中的人工智能安全治理相关度和发布时间排序，相关度只影响抓取顺序，
+已知发布时间和标题、路径中的人工智能安全治理相关度排序，相关度只影响抓取顺序，
 不会直接删除信息。文章发布日期优先于修改时间和 Feed 时间，数据库同时按 URL
-和正文指纹去重。连续三个文章页返回 401/403 时会提前停止该来源，避免反复请求。
+和正文指纹去重。已确认发布日期的 URL 会写入 `crawl_observations`，后续小时任务
+直接跳过窗口外旧文章；历史扩窗覆盖其发布日期时仍会正常抓取。连续三个文章页
+返回 401/403 时会提前停止该来源，避免反复请求。
 
-来源清单现有 **135 项**（启用 100、停用 35）。2026-09-13 本轮新增 15 项（补齐 40 家清单缺项 +
+来源清单现有 144 项、启用 111 项、停用 33 项。2026-09-13 队友版本新增 15 项（补齐 40 家清单缺项 +
 官方/国际源 + 纽约时报科技），并修复 `independent_ai` 白名单（站点已迁移到
 `the-independent.com`）。同日依据 `scripts/probe_candidates.py` 的探测结果，
 把 `csis`、`chicago_council`、`cato`、`rand`、`heritage` 切换到探测到的可用 RSS 入口：
-前四者已恢复为 success；`heritage` 的 RSS 可正常读取，但文章正文页持续 403、拿不到正文，
-已停用待更换入口。这印证了一点：**切 RSS 只能拿到标题与链接，正文仍要回抓原页面，
-站点若在正文页做反爬，单靠换 feed 救不回来**。
+前四者已恢复为 success；`heritage` 的 RSS 可正常读取，正文页静态请求持续 403，
+现通过 Crawl4AI fallback 尝试恢复正文。
 实测持续 403 或超时的 FPRI、The Diplomat、The National Interest、NBR、
 Center for American Progress、USCBC、Coe AI、UNESCO AI、Lawfare、OpenAI 新闻、
 NYT 科技等暂停启用；配置保留，便于后续替换入口。
 
-2026-09-22 按用户提供的《主要跟踪智库及媒体》166 项跟踪清单补充来源：逐条审核后纳入 53 项（`docs/来源_166项审核表.md`），审核口径为只排除明显与 AI 安全治理无关者，地区不再限于美欧，日本、韩国、新加坡、印度、巴西、南非、以色列、马来西亚、俄罗斯、澳大利亚、加拿大均纳入。新源单源候选上限统一设为 10，低于原库的 15~35。其中 16 项探测返回 403（Cloudflare 反爬，RSS 入口同样被挡）暂未启用；其余首次探测超时的来源复测大多可达——连接情况受网络路径波动影响较大，上线前需在部署网络下复测一遍。
+2026-09-22 增补来源：依据用户《主要跟踪智库及媒体》166 项跟踪清单逐条审核，纳入 53 项（审核表 `docs/来源_166项审核表.md`，原件 `docs/跟踪清单_智库及媒体_166项.md`），口径为只排除明显与 AI 安全治理无关者，地区不限（日、韩、新、印、巴西、南非、以色列、马来、俄、澳、加均纳入）。新源单源候选上限统一设 10；其中 16 项探测返回 403（Cloudflare 反爬）暂未启用。与队友 2026-09-14 提交融合后，来源配置共 144 项。
 
 正式日报统计窗口为北京时间 `[昨日06:00, 今日06:00)`，06:05提前准备，07:00读取就绪文件发送。
 输出按“新闻媒体信息”和“机构信息”分目录：每类包含1份摘要合集，以及每篇入选
@@ -277,6 +307,10 @@ python scripts/inspect_operations.py --run-id <日志中的run_id> --responses
 
 汇总包含失败重试；missing_calls表示服务端未报告该项用量的调用数，known_total只是已知合计。llm_elapsed_seconds是请求耗时之和；阶段相互嵌套，不应把所有阶段耗时相加当作总耗时。
 
-来源总数从53增至67，启用从42增至54。新增启用12项：OpenAI新闻与研究、Anthropic研究与新闻、Google DeepMind、Stanford HAI、METR、Apollo Research、GovAI、Hugging Face博客，以及TechCrunch AI、MIT Technology Review AI、WIRED AI。继续遵守域名白名单、robots和原有安全治理筛选标准，不因扩源降低收录门槛。采集入口及正文已做单样本在线验证；OpenAI复测出现间歇403，可用性随站点与网络变化。新增但暂不启用2项：Lawfare RSS返回403；Anthropic对齐博客缺少稳定日期元数据，通用解析可能误取历史日期，等待日期适配。Anthropic主站研究/新闻已增加文章页头日期适配，避免将正文引用的历史年份误当发布日期。来源明细见config/sources.json。
+双方来源已完成并集合并，当前共94项、启用76项。本地新增 The Verge AI、IEEE Spectrum AI、Tech Policy Press、Rest of World 4个媒体源，以及 Google AI Blog、Mozilla AI、Partnership on AI、AI Now Institute、NIST News、Future of Privacy Forum、Center for Democracy & Technology、Electronic Frontier Foundation 8个机构源；同时保留队友新增的15项政府、智库、国际组织与媒体来源。所有本地新增入口均做了在线 Feed/列表发现验证和正文抽样；被 robots 拒绝的 The Register、返回403/429或空 Feed 的候选没有加入。CDT 静态正文返回403，单独启用 Crawl4AI fallback；Heritage 使用队友发现的 RSS 入口，并由 Crawl4AI fallback 尝试恢复正文。扩源继续遵守域名白名单、robots和原有安全治理语义筛选标准，不因扩源降低收录门槛。来源明细见config/sources.json。
+
+本轮远端/本地融合决策、采集机制、摘要核验、备份告警、验证结果与上线步骤见
+[2026-09-14 融合与机制改进记录](docs/2026-09-14_融合与机制改进记录.md)；当前自动生成的
+逐源状态见[数据源清单统计](docs/源清单统计.md)。
 
 真实链路样例：METR安全事件文章生成204字符中文摘要，审核通过，2次模型请求，无重写；服务端响应模型为deepseek-flash，输入3646、输出158、总计3804 token；模型请求合计3.719秒。数据仅代表这次实测，不是性能承诺。此次未发送邮件，也未更新已准备或已发送的历史文件；重启已有常驻进程后生效，下一次独立脚本启动直接读取新代码。
