@@ -37,16 +37,24 @@ class NativePage:
 
 
 def _proxy_config(value: str) -> dict[str, str] | None:
-    """Convert a proxy URL without leaking credentials into the server field."""
+    """Convert a proxy URL without leaking credentials into the server field.
+
+    Chromium 只识别 http/https/socks4/socks5，不认 curl 风格的 socks5h/socks4a
+    （否则报 ERR_NO_SUPPORTED_PROXIES）。这里把 scheme 归一化；Chromium 的
+    SOCKS5 会把域名交给代理解析，因此改用 socks5 不改变“DNS 走代理”的语义。
+    """
     if not value:
         return None
     parsed = urlparse(value)
     if not parsed.scheme or not parsed.hostname:
         return {"server": value}
+    scheme = {"socks5h": "socks5", "socks4a": "socks4"}.get(
+        parsed.scheme.lower(), parsed.scheme
+    )
     host = f"[{parsed.hostname}]" if ":" in parsed.hostname else parsed.hostname
     if parsed.port:
         host = f"{host}:{parsed.port}"
-    result = {"server": urlunparse((parsed.scheme, host, "", "", "", ""))}
+    result = {"server": urlunparse((scheme, host, "", "", "", ""))}
     if parsed.username:
         result["username"] = unquote(parsed.username)
     if parsed.password:

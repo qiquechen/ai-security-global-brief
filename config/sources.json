@@ -194,6 +194,7 @@
         "/search"
       ],
       "max_candidates": 25,
+      "lnc_mode": "fallback",
       "name_en": "U.S. Department of Commerce",
       "priority": 98
     },
@@ -748,7 +749,7 @@
       "url": "https://www.nbr.org/",
       "homepage": "https://www.nbr.org/",
       "enabled": false,
-      "disabled_reason": "2026-09-09 多轮实测文章页持续返回 403",
+      "disabled_reason": "2026-09-22 复测：入口可达但文章页持续403（Cloudflare JS 挑战），浏览器渲染 0/2 未能恢复",
       "category_hint": "",
       "priority": 55,
       "allowed_domains": [
@@ -770,6 +771,7 @@
         "/donate"
       ],
       "max_candidates": 15,
+      "lnc_mode": "fallback",
       "feed": ""
     },
     {
@@ -847,8 +849,7 @@
       "method": "rss",
       "url": "https://www.americanprogress.org/feed/",
       "homepage": "https://www.americanprogress.org/",
-      "enabled": false,
-      "disabled_reason": "2026-09-09 多轮实测 Feed 返回 403",
+      "enabled": true,
       "category_hint": "",
       "priority": 55,
       "allowed_domains": [
@@ -870,6 +871,7 @@
         "/donate"
       ],
       "max_candidates": 15,
+      "lnc_mode": "fallback",
       "feed": "https://www.americanprogress.org/feed/"
     },
     {
@@ -914,8 +916,7 @@
       "method": "page",
       "url": "https://www.fpri.org/",
       "homepage": "https://www.fpri.org/",
-      "enabled": false,
-      "disabled_reason": "2026-09-09 实测入口与文章连续返回 403",
+      "enabled": true,
       "category_hint": "",
       "priority": 55,
       "allowed_domains": [
@@ -937,6 +938,7 @@
         "/donate"
       ],
       "max_candidates": 15,
+      "lnc_mode": "fallback",
       "feed": ""
     },
     {
@@ -1092,8 +1094,7 @@
       "method": "rss",
       "url": "https://thediplomat.com/feed/",
       "homepage": "https://thediplomat.com/",
-      "enabled": false,
-      "disabled_reason": "2026-09-09 实测文章页连续返回 403",
+      "enabled": true,
       "category_hint": "",
       "priority": 55,
       "allowed_domains": [
@@ -1115,6 +1116,7 @@
         "/donate"
       ],
       "max_candidates": 15,
+      "lnc_mode": "fallback",
       "feed": "https://thediplomat.com/feed/"
     },
     {
@@ -1149,6 +1151,7 @@
         "/donate"
       ],
       "max_candidates": 15,
+      "lnc_mode": "fallback",
       "feed": ""
     },
     {
@@ -1182,6 +1185,7 @@
         "/donate"
       ],
       "max_candidates": 15,
+      "lnc_mode": "fallback",
       "disabled_reason": "整站 403（付费/反爬），无法抓取",
       "feed": ""
     },
@@ -1250,7 +1254,7 @@
       "url": "https://www.oecd.org/en/topics/policy-issues/artificial-intelligence.html",
       "homepage": "https://www.oecd.org/",
       "enabled": false,
-      "disabled_reason": "2026-09-09 实测入口返回 403，保留配置待替换接口",
+      "disabled_reason": "2026-09-22 复测：入口经渲染可达，但文章页持续403（Cloudflare JS 挑战），渲染 0/2 未能恢复",
       "category_hint": "国际人工智能政策与治理",
       "priority": 95,
       "allowed_domains": [
@@ -1267,6 +1271,7 @@
         "/search"
       ],
       "max_candidates": 30,
+      "lnc_mode": "fallback",
       "feed": ""
     },
     {
@@ -1604,8 +1609,7 @@
       "url": "https://openai.com/news/rss.xml",
       "homepage": "https://openai.com/",
       "feed": "https://openai.com/news/rss.xml",
-      "enabled": false,
-      "disabled_reason": "2026-09-13 文章页持续403（反爬），待更换入口",
+      "enabled": true,
       "category_hint": "人工智能安全、评估、治理与社会影响",
       "priority": 85,
       "allowed_domains": [
@@ -1620,7 +1624,8 @@
         "/category/",
         "/page/"
       ],
-      "max_candidates": 30
+      "max_candidates": 30,
+      "lnc_mode": "fallback"
     },
     {
       "id": "anthropic_research",
@@ -1924,17 +1929,17 @@
       "name_en": "Lawfare安全与法律",
       "country": "US",
       "type": "media",
-      "method": "rss",
-      "url": "https://www.lawfaremedia.org/rss.xml",
+      "method": "page",
+      "url": "https://www.lawfaremedia.org/",
       "homepage": "https://www.lawfaremedia.org/",
-      "feed": "https://www.lawfaremedia.org/rss.xml",
-      "enabled": false,
+      "feed": "",
+      "enabled": true,
       "category_hint": "人工智能安全、评估、治理与社会影响",
       "priority": 75,
       "allowed_domains": [
         "lawfaremedia.org"
       ],
-      "include_patterns": [],
+      "include_patterns": ["/article/"],
       "exclude_patterns": [
         "/tag/",
         "/author/",
@@ -1942,7 +1947,7 @@
         "/page/"
       ],
       "max_candidates": 30,
-      "disabled_reason": "2026-09-10 公开RSS返回403；待替换可用入口"
+      "lnc_mode": "fallback"
     },
     {
       "id": "the_verge_ai",
@@ -2246,6 +2251,7 @@
       "include_patterns": ["/short-reads", "/research-topics", "/article", "/report", "/fact-sheet"],
       "exclude_patterns": ["/about", "/staff", "/search", "/donate", "/topics-methods"],
       "max_candidates": 20,
+      "lnc_mode": "fallback",
       "use_discovered_feed": true
     },
     {
@@ -2315,14 +2321,14 @@
       "homepage": "https://www.uschina.org/",
       "url": "https://www.uschina.org/",
       "feed": "",
-      "enabled": false,
-      "disabled_reason": "2026-09-13 入口返回403，待更换入口",
+      "enabled": true,
       "category_hint": "中美经贸与科技产业",
       "priority": 72,
       "allowed_domains": ["uschina.org"],
       "include_patterns": ["/reports", "/publications", "/news", "/insights"],
       "exclude_patterns": ["/about", "/contact", "/membership", "/search", "/jobs"],
       "max_candidates": 15,
+      "lnc_mode": "fallback",
       "use_discovered_feed": true
     },
     {
@@ -2414,13 +2420,14 @@
       "url": "https://www.coe.int/en/web/artificial-intelligence",
       "feed": "",
       "enabled": false,
-      "disabled_reason": "2026-09-13 入口返回403，待更换入口",
+      "disabled_reason": "2026-09-22 复测：文章页持续403，浏览器渲染 0/2 未能恢复",
       "category_hint": "AI公约与人权治理",
       "priority": 82,
       "allowed_domains": ["coe.int"],
       "include_patterns": ["/artificial-intelligence", "/news", "/publications", "/convention"],
       "exclude_patterns": ["/about", "/contact", "/search"],
       "max_candidates": 20,
+      "lnc_mode": "fallback",
       "use_discovered_feed": true
     },
     {
@@ -2472,14 +2479,14 @@
       "homepage": "https://www.nytimes.com/",
       "url": "https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml",
       "feed": "https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml",
-      "enabled": false,
-      "disabled_reason": "2026-09-13 正文页403（付费墙/反爬），待换可用入口",
+      "enabled": true,
       "category_hint": "科技与AI产业动态",
       "priority": 72,
       "allowed_domains": ["nytimes.com"],
       "include_patterns": [],
       "exclude_patterns": ["/crossword", "/games", "/subscribe", "/search"],
-      "max_candidates": 15
+      "max_candidates": 15,
+      "lnc_mode": "fallback"
     },
     {
       "id": "internetsociety",
@@ -2566,8 +2573,7 @@
       "homepage": "https://www.congress.gov/",
       "url": "https://www.congress.gov/crs-products",
       "feed": "",
-      "enabled": false,
-      "disabled_reason": "2026-09-22 探测返回403（反爬），待更换入口",
+      "enabled": true,
       "category_hint": "国会研究报告",
       "priority": 82,
       "allowed_domains": [
@@ -2580,7 +2586,8 @@
         "/category/",
         "/page/"
       ],
-      "max_candidates": 10
+      "max_candidates": 10,
+      "lnc_mode": "fallback"
     },
     {
       "id": "us_fcc",
@@ -2606,7 +2613,8 @@
         "/category/",
         "/page/"
       ],
-      "max_candidates": 10
+      "max_candidates": 10,
+      "lnc_mode": "fallback"
     },
     {
       "id": "solarium",
@@ -2618,8 +2626,7 @@
       "homepage": "https://www.cybersolarium.org/",
       "url": "https://www.cybersolarium.org/",
       "feed": "",
-      "enabled": false,
-      "disabled_reason": "2026-09-22 探测返回403（反爬），待更换入口",
+      "enabled": true,
       "category_hint": "网络空间战略",
       "priority": 72,
       "allowed_domains": [
@@ -2632,7 +2639,8 @@
         "/category/",
         "/page/"
       ],
-      "max_candidates": 10
+      "max_candidates": 10,
+      "lnc_mode": "fallback"
     },
     {
       "id": "gao",
@@ -2658,7 +2666,8 @@
         "/category/",
         "/page/"
       ],
-      "max_candidates": 10
+      "max_candidates": 10,
+      "lnc_mode": "fallback"
     },
     {
       "id": "cgd",
@@ -2684,7 +2693,8 @@
         "/category/",
         "/page/"
       ],
-      "max_candidates": 10
+      "max_candidates": 10,
+      "lnc_mode": "fallback"
     },
     {
       "id": "gmf",
@@ -2721,8 +2731,7 @@
       "homepage": "https://techpolicyinstitute.org/",
       "url": "https://techpolicyinstitute.org/",
       "feed": "",
-      "enabled": false,
-      "disabled_reason": "2026-09-22 探测返回403（反爬），待更换入口",
+      "enabled": true,
       "category_hint": "科技政策研究",
       "priority": 76,
       "allowed_domains": [
@@ -2735,7 +2744,8 @@
         "/category/",
         "/page/"
       ],
-      "max_candidates": 10
+      "max_candidates": 10,
+      "lnc_mode": "fallback"
     },
     {
       "id": "sia",
@@ -2836,7 +2846,8 @@
         "/category/",
         "/page/"
       ],
-      "max_candidates": 10
+      "max_candidates": 10,
+      "lnc_mode": "fallback"
     },
     {
       "id": "innovate_uk",
@@ -3023,8 +3034,7 @@
       "homepage": "https://www.weforum.org/",
       "url": "https://www.weforum.org/stories/",
       "feed": "",
-      "enabled": false,
-      "disabled_reason": "2026-09-22 探测返回403（反爬），待更换入口",
+      "enabled": true,
       "category_hint": "全球治理与AI倡议",
       "priority": 84,
       "allowed_domains": [
@@ -3037,7 +3047,8 @@
         "/category/",
         "/page/"
       ],
-      "max_candidates": 10
+      "max_candidates": 10,
+      "lnc_mode": "fallback"
     },
     {
       "id": "un_news_ai",
@@ -3049,7 +3060,8 @@
       "homepage": "https://news.un.org/",
       "url": "https://news.un.org/feed/subscribe/en/news/topic/ai/feed/rss.xml",
       "feed": "https://news.un.org/feed/subscribe/en/news/topic/ai/feed/rss.xml",
-      "enabled": true,
+      "enabled": false,
+      "disabled_reason": "2026-09-22 复测：robots.txt 明确禁止抓取该 Feed，按合规要求停用",
       "category_hint": "联合国AI议题",
       "priority": 86,
       "allowed_domains": [
@@ -3088,7 +3100,8 @@
         "/category/",
         "/page/"
       ],
-      "max_candidates": 10
+      "max_candidates": 10,
+      "lnc_mode": "fallback"
     },
     {
       "id": "un_desa",
@@ -3164,7 +3177,8 @@
         "/category/",
         "/page/"
       ],
-      "max_candidates": 10
+      "max_candidates": 10,
+      "lnc_mode": "fallback"
     },
     {
       "id": "ecipe",
@@ -3201,8 +3215,7 @@
       "homepage": "https://www.ceps.eu/",
       "url": "https://www.ceps.eu/ceps-publications/",
       "feed": "",
-      "enabled": false,
-      "disabled_reason": "2026-09-22 探测返回403（反爬），待更换入口",
+      "enabled": true,
       "category_hint": "欧盟政策研究",
       "priority": 80,
       "allowed_domains": [
@@ -3215,7 +3228,8 @@
         "/category/",
         "/page/"
       ],
-      "max_candidates": 10
+      "max_candidates": 10,
+      "lnc_mode": "fallback"
     },
     {
       "id": "epc",
@@ -3277,8 +3291,7 @@
       "homepage": "https://ecfr.eu/",
       "url": "https://ecfr.eu/publications/",
       "feed": "",
-      "enabled": false,
-      "disabled_reason": "2026-09-22 探测返回403（反爬），待更换入口",
+      "enabled": true,
       "category_hint": "外交与全球治理",
       "priority": 82,
       "allowed_domains": [
@@ -3291,7 +3304,8 @@
         "/category/",
         "/page/"
       ],
-      "max_candidates": 10
+      "max_candidates": 10,
+      "lnc_mode": "fallback"
     },
     {
       "id": "imemo",
@@ -3342,7 +3356,8 @@
         "/category/",
         "/page/"
       ],
-      "max_candidates": 10
+      "max_candidates": 10,
+      "lnc_mode": "fallback"
     },
     {
       "id": "accc",
@@ -3368,7 +3383,8 @@
         "/category/",
         "/page/"
       ],
-      "max_candidates": 10
+      "max_candidates": 10,
+      "lnc_mode": "fallback"
     },
     {
       "id": "aspi",
@@ -3393,7 +3409,8 @@
         "/category/",
         "/page/"
       ],
-      "max_candidates": 10
+      "max_candidates": 10,
+      "lnc_mode": "fallback"
     },
     {
       "id": "lowy",
@@ -3468,7 +3485,8 @@
         "/category/",
         "/page/"
       ],
-      "max_candidates": 10
+      "max_candidates": 10,
+      "lnc_mode": "fallback"
     },
     {
       "id": "inss",
@@ -3719,7 +3737,8 @@
         "/category/",
         "/page/"
       ],
-      "max_candidates": 10
+      "max_candidates": 10,
+      "lnc_mode": "fallback"
     },
     {
       "id": "orf",

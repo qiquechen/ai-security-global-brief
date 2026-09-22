@@ -74,8 +74,9 @@ python scripts/run_crawl.py
 `"lnc_mode": "fallback"`：系统先走原有轻量请求，失败或正文不足 180 字符时，
 再由 Crawl4AI 的 Chromium 渲染网页、清洗 DOM，并以 PruningContentFilter 生成
 精简 Markdown；后续仍交给现有 LLM 做收录判断和结构化摘要。`"always"` 会让 page
-类型来源的入口与文章页都使用浏览器，`"off"`（默认）不启用。当前仅对 Heritage、
-War on the Rocks、卫报 AI、日本时报 AI、独立报 AI 和 CDT 开启 fallback。运行日志中的
+类型来源的入口与文章页都使用浏览器，`"off"`（默认）不启用。当前共 37 个来源开启 fallback：
+队友原有的 Heritage、War on the Rocks、卫报 AI、日本时报 AI、独立报 AI、CDT，以及 2026-09-22
+为 28 个曾因反爬停用的来源统一预置（其中 16 个经复测已恢复启用）。运行日志中的
 `lnc=成功/尝试 recovered=静态失败后救回` 可用于评估实际增量。
 逐源日志还会打印 `url_filtered`（域名、路径规则或文章 URL 规则淘汰）、
 `hint_outside`（Feed/列表页已给出日期且不在本次窗口）和 `blacklisted`
@@ -103,17 +104,26 @@ crawl4ai-setup
 直接跳过窗口外旧文章；历史扩窗覆盖其发布日期时仍会正常抓取。连续三个文章页
 返回 401/403 时会提前停止该来源，避免反复请求。
 
-来源清单现有 144 项、启用 111 项、停用 33 项。2026-09-13 队友版本新增 15 项（补齐 40 家清单缺项 +
+来源清单现有 144 项、启用 123 项、停用 21 项。2026-09-13 队友版本新增 15 项（补齐 40 家清单缺项 +
 官方/国际源 + 纽约时报科技），并修复 `independent_ai` 白名单（站点已迁移到
 `the-independent.com`）。同日依据 `scripts/probe_candidates.py` 的探测结果，
 把 `csis`、`chicago_council`、`cato`、`rand`、`heritage` 切换到探测到的可用 RSS 入口：
 前四者已恢复为 success；`heritage` 的 RSS 可正常读取，正文页静态请求持续 403，
 现通过 Crawl4AI fallback 尝试恢复正文。
-实测持续 403 或超时的 FPRI、The Diplomat、The National Interest、NBR、
-Center for American Progress、USCBC、Coe AI、UNESCO AI、Lawfare、OpenAI 新闻、
-NYT 科技等暂停启用；配置保留，便于后续替换入口。
+上段列出的 FPRI、The Diplomat、Center for American Progress、USCBC、Lawfare、OpenAI 新闻、
+NYT 科技等在 2026-09-22 复测后保持启用；NBR、Coe AI 因文章页仍被 Cloudflare 拦截已重新停用。
+The National Interest 与 UNESCO AI 仍停用。
 
-2026-09-22 增补来源：依据用户《主要跟踪智库及媒体》166 项跟踪清单逐条审核，纳入 53 项（审核表 `docs/来源_166项审核表.md`，原件 `docs/跟踪清单_智库及媒体_166项.md`），口径为只排除明显与 AI 安全治理无关者，地区不限（日、韩、新、印、巴西、南非、以色列、马来、俄、澳、加均纳入）。新源单源候选上限统一设 10；其中 16 项探测返回 403（Cloudflare 反爬）暂未启用。与队友 2026-09-14 提交融合后，来源配置共 144 项。
+2026-09-22 增补来源：依据用户《主要跟踪智库及媒体》166 项跟踪清单逐条审核，纳入 53 项（审核表 `docs/来源_166项审核表.md`，原件 `docs/跟踪清单_智库及媒体_166项.md`），口径为只排除明显与 AI 安全治理无关者，地区不限（日、韩、新、印、巴西、南非、以色列、马来、俄、澳、加均纳入）。新源单源候选上限统一设 10。与队友 2026-09-14 提交融合后，来源配置共 144 项、启用 123 项。
+
+2026-09-22 反爬复测：用 `scripts/probe_lnc.py` 对 28 个因 403 停用的来源做静态请求与 Crawl4AI
+浏览器渲染对比，入口页层面 15 项可达、13 项被拦下。**入口页可达不等于文章页可达**——随后用真实采集
+（127 源、新增 53 篇、耗时 108.7 秒）校验，其中 nbr、oecd_ai、coe_ai 的文章页仍被 Cloudflare JS 挑战
+拦截（渲染 0/2 未恢复），已重新停用；un_news_ai 因 robots.txt 明确禁止抓取而停用。
+最终该批次净恢复启用 13 项：americanprogress、fpri、the_diplomat、openai_news、uscbc、nyt_tech、
+solarium、tpi、ceps、ecfr、us_crs、wef（后两者靠浏览器渲染）、lawfare（RSS 入口失效改为首页入口 + 渲染）。
+aspi、cigi、pew 已补配 fallback 待下一轮复测；仍被拦的（Cloudflare JS 挑战、DataDome、Imperva、Akamai 等）
+继续停用。
 
 正式日报统计窗口为北京时间 `[昨日06:00, 今日06:00)`，06:05提前准备，07:00读取就绪文件发送。
 输出按“新闻媒体信息”和“机构信息”分目录：每类包含1份摘要合集，以及每篇入选
