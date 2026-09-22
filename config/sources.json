@@ -490,8 +490,7 @@
         "/support",
         "/donate"
       ],
-      "max_candidates": 15,
-      "feed": ""
+      "max_candidates": 15
     },
     {
       "id": "cato",
@@ -2228,6 +2227,1347 @@
       "include_patterns": [],
       "exclude_patterns": ["/crossword", "/games", "/subscribe", "/search"],
       "max_candidates": 15
+    },
+    {
+      "id": "internetsociety",
+      "name": "国际互联网协会",
+      "name_en": "Internet Society",
+      "country": "美国",
+      "type": "organization",
+      "method": "rss",
+      "homepage": "https://www.internetsociety.org/",
+      "url": "https://www.internetsociety.org/feed/",
+      "feed": "https://www.internetsociety.org/feed/",
+      "enabled": true,
+      "category_hint": "互联网治理与数字政策",
+      "priority": 75,
+      "allowed_domains": [
+        "internetsociety.org"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "world_bank",
+      "name": "世界银行",
+      "name_en": "World Bank",
+      "country": "美国",
+      "type": "organization",
+      "method": "page",
+      "homepage": "https://www.worldbank.org/",
+      "url": "https://www.worldbank.org/en/news",
+      "feed": "",
+      "enabled": true,
+      "category_hint": "发展议题与数字治理",
+      "priority": 76,
+      "allowed_domains": [
+        "worldbank.org"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "gsa",
+      "name": "美国总务管理局",
+      "name_en": "U.S. General Services Administration",
+      "country": "美国",
+      "type": "gov",
+      "method": "page",
+      "homepage": "https://www.gsa.gov/",
+      "url": "https://www.gsa.gov/about-gsa/newsroom/news-releases",
+      "feed": "",
+      "enabled": true,
+      "category_hint": "政府采购与AI应用",
+      "priority": 78,
+      "allowed_domains": [
+        "gsa.gov"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "us_crs",
+      "name": "美国国会研究服务部",
+      "name_en": "Congressional Research Service",
+      "country": "美国",
+      "type": "gov",
+      "method": "page",
+      "homepage": "https://www.congress.gov/",
+      "url": "https://www.congress.gov/crs-products",
+      "feed": "",
+      "enabled": false,
+      "disabled_reason": "2026-09-22 探测返回403（反爬），待更换入口",
+      "category_hint": "国会研究报告",
+      "priority": 82,
+      "allowed_domains": [
+        "congress.gov"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "us_fcc",
+      "name": "美国联邦通信委员会",
+      "name_en": "Federal Communications Commission",
+      "country": "美国",
+      "type": "gov",
+      "method": "page",
+      "homepage": "https://www.fcc.gov/",
+      "url": "https://www.fcc.gov/news-events/headlines",
+      "feed": "",
+      "enabled": false,
+      "disabled_reason": "2026-09-22 探测返回403（反爬），待更换入口",
+      "category_hint": "通信与AI监管",
+      "priority": 82,
+      "allowed_domains": [
+        "fcc.gov"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "solarium",
+      "name": "美国网络空间日光浴委员会",
+      "name_en": "Cyberspace Solarium Commission",
+      "country": "美国",
+      "type": "gov_affiliated",
+      "method": "page",
+      "homepage": "https://www.cybersolarium.org/",
+      "url": "https://www.cybersolarium.org/",
+      "feed": "",
+      "enabled": false,
+      "disabled_reason": "2026-09-22 探测返回403（反爬），待更换入口",
+      "category_hint": "网络空间战略",
+      "priority": 72,
+      "allowed_domains": [
+        "cybersolarium.org"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "gao",
+      "name": "美国政府问责局",
+      "name_en": "U.S. Government Accountability Office",
+      "country": "美国",
+      "type": "gov",
+      "method": "page",
+      "homepage": "https://www.gao.gov/",
+      "url": "https://www.gao.gov/press-releases",
+      "feed": "",
+      "enabled": false,
+      "disabled_reason": "2026-09-22 探测返回403（反爬），待更换入口",
+      "category_hint": "政府审计与AI评估",
+      "priority": 82,
+      "allowed_domains": [
+        "gao.gov"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "cgd",
+      "name": "美国全球发展中心",
+      "name_en": "Center for Global Development",
+      "country": "美国",
+      "type": "thinktank",
+      "method": "page",
+      "homepage": "https://www.cgdev.org/",
+      "url": "https://www.cgdev.org/topics/technology",
+      "feed": "",
+      "enabled": false,
+      "disabled_reason": "2026-09-22 探测超时/403，待本机带代理复测",
+      "category_hint": "发展政策与数字技术",
+      "priority": 76,
+      "allowed_domains": [
+        "cgdev.org"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "gmf",
+      "name": "德国马歇尔基金会",
+      "name_en": "German Marshall Fund of the United States",
+      "country": "美国",
+      "type": "thinktank",
+      "method": "page",
+      "homepage": "https://www.gmfus.org/",
+      "url": "https://www.gmfus.org/news",
+      "feed": "",
+      "enabled": true,
+      "category_hint": "跨大西洋政策",
+      "priority": 80,
+      "allowed_domains": [
+        "gmfus.org"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "tpi",
+      "name": "美国科技政策研究所",
+      "name_en": "Technology Policy Institute",
+      "country": "美国",
+      "type": "thinktank",
+      "method": "page",
+      "homepage": "https://techpolicyinstitute.org/",
+      "url": "https://techpolicyinstitute.org/",
+      "feed": "",
+      "enabled": false,
+      "disabled_reason": "2026-09-22 探测返回403（反爬），待更换入口",
+      "category_hint": "科技政策研究",
+      "priority": 76,
+      "allowed_domains": [
+        "techpolicyinstitute.org"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "cdt",
+      "name": "美国民主与科技中心",
+      "name_en": "Center for Democracy & Technology",
+      "country": "美国",
+      "type": "thinktank",
+      "method": "page",
+      "homepage": "https://cdt.org/",
+      "url": "https://cdt.org/insights/",
+      "feed": "",
+      "enabled": false,
+      "disabled_reason": "2026-09-22 探测返回403（反爬），待更换入口",
+      "category_hint": "数字权利与AI政策",
+      "priority": 80,
+      "allowed_domains": [
+        "cdt.org"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "eff",
+      "name": "美国电子前沿基金会",
+      "name_en": "Electronic Frontier Foundation",
+      "country": "美国",
+      "type": "organization",
+      "method": "rss",
+      "homepage": "https://www.eff.org/",
+      "url": "https://www.eff.org/rss/updates.xml",
+      "feed": "https://www.eff.org/rss/updates.xml",
+      "enabled": true,
+      "category_hint": "数字权利与AI",
+      "priority": 78,
+      "allowed_domains": [
+        "eff.org"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "sia",
+      "name": "美国半导体协会",
+      "name_en": "Semiconductor Industry Association",
+      "country": "美国",
+      "type": "organization",
+      "method": "page",
+      "homepage": "https://www.semiconductors.org/",
+      "url": "https://www.semiconductors.org/",
+      "feed": "",
+      "enabled": true,
+      "category_hint": "半导体与算力产业",
+      "priority": 76,
+      "allowed_domains": [
+        "semiconductors.org"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "ieee_spectrum_ai",
+      "name": "IEEE《光谱》人工智能",
+      "name_en": "IEEE Spectrum - Artificial Intelligence",
+      "country": "美国",
+      "type": "media",
+      "method": "rss",
+      "homepage": "https://spectrum.ieee.org/",
+      "url": "https://spectrum.ieee.org/feeds/topic/artificial-intelligence.rss",
+      "feed": "https://spectrum.ieee.org/feeds/topic/artificial-intelligence.rss",
+      "enabled": true,
+      "category_hint": "科技与AI产业动态",
+      "priority": 78,
+      "allowed_domains": [
+        "spectrum.ieee.org"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "uk_mod",
+      "name": "英国国防部",
+      "name_en": "UK Ministry of Defence",
+      "country": "英国",
+      "type": "gov",
+      "method": "page",
+      "homepage": "https://www.gov.uk/government/organisations/ministry-of-defence",
+      "url": "https://www.gov.uk/government/organisations/ministry-of-defence",
+      "feed": "",
+      "enabled": true,
+      "category_hint": "国防与军事AI",
+      "priority": 84,
+      "allowed_domains": [
+        "gov.uk"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "iiss",
+      "name": "英国国际战略研究所",
+      "name_en": "International Institute for Strategic Studies",
+      "country": "英国",
+      "type": "thinktank",
+      "method": "page",
+      "homepage": "https://www.iiss.org/",
+      "url": "https://www.iiss.org/publications/",
+      "feed": "",
+      "enabled": true,
+      "category_hint": "战略安全与国际治理",
+      "priority": 86,
+      "allowed_domains": [
+        "iiss.org"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "chatham_house",
+      "name": "英国皇家国际事务研究所（查塔姆研究所）",
+      "name_en": "Chatham House",
+      "country": "英国",
+      "type": "thinktank",
+      "method": "page",
+      "homepage": "https://www.chathamhouse.org/",
+      "url": "https://www.chathamhouse.org/publications",
+      "feed": "",
+      "enabled": false,
+      "disabled_reason": "2026-09-22 探测返回403（Cloudflare 反爬），RSS 入口同样403，待更换入口或代理",
+      "category_hint": "外交与全球治理",
+      "priority": 86,
+      "allowed_domains": [
+        "chathamhouse.org"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "innovate_uk",
+      "name": "英国创新署",
+      "name_en": "Innovate UK",
+      "country": "英国",
+      "type": "gov",
+      "method": "page",
+      "homepage": "https://www.ukri.org/",
+      "url": "https://www.ukri.org/news/",
+      "feed": "",
+      "enabled": true,
+      "category_hint": "科技创新政策",
+      "priority": 80,
+      "allowed_domains": [
+        "ukri.org"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "isrm",
+      "name": "英国战略风险管理研究所",
+      "name_en": "Institute of Strategic Risk Management",
+      "country": "英国",
+      "type": "thinktank",
+      "method": "page",
+      "homepage": "https://www.theisrm.org/",
+      "url": "https://www.theisrm.org/",
+      "feed": "",
+      "enabled": true,
+      "category_hint": "战略风险管理",
+      "priority": 72,
+      "allowed_domains": [
+        "theisrm.org"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "de_bmwk",
+      "name": "德国联邦经济事务和气候行动部",
+      "name_en": "German Federal Ministry for Economic Affairs and Climate Action",
+      "country": "德国",
+      "type": "gov",
+      "method": "page",
+      "homepage": "https://www.bundeswirtschaftsministerium.de/",
+      "url": "https://www.bundeswirtschaftsministerium.de/Navigation/EN/Home/home.html",
+      "feed": "",
+      "enabled": true,
+      "category_hint": "产业政策与技术主权",
+      "priority": 84,
+      "allowed_domains": [
+        "bundeswirtschaftsministerium.de"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "bitkom",
+      "name": "德国数字经济协会",
+      "name_en": "Bitkom",
+      "country": "德国",
+      "type": "organization",
+      "method": "page",
+      "homepage": "https://www.bitkom.org/",
+      "url": "https://www.bitkom.org/Presse",
+      "feed": "",
+      "enabled": true,
+      "category_hint": "数字产业与AI治理",
+      "priority": 76,
+      "allowed_domains": [
+        "bitkom.org"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "swp",
+      "name": "德国科学与政治基金会",
+      "name_en": "German Institute for International and Security Affairs",
+      "country": "德国",
+      "type": "thinktank",
+      "method": "page",
+      "homepage": "https://www.swp-berlin.org/",
+      "url": "https://www.swp-berlin.org/en/publications",
+      "feed": "",
+      "enabled": true,
+      "category_hint": "国际安全与治理",
+      "priority": 82,
+      "allowed_domains": [
+        "swp-berlin.org"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "global_policy_forum",
+      "name": "全球政策论坛",
+      "name_en": "Global Policy Forum",
+      "country": "德国",
+      "type": "organization",
+      "method": "page",
+      "homepage": "https://archive.globalpolicy.org/",
+      "url": "https://archive.globalpolicy.org/",
+      "feed": "",
+      "enabled": true,
+      "category_hint": "全球治理（存档站，内容较旧）",
+      "priority": 68,
+      "allowed_domains": [
+        "globalpolicy.org"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "hcss",
+      "name": "荷兰海牙战略研究中心",
+      "name_en": "The Hague Centre for Strategic Studies",
+      "country": "荷兰",
+      "type": "thinktank",
+      "method": "page",
+      "homepage": "https://hcss.nl/",
+      "url": "https://hcss.nl/",
+      "feed": "",
+      "enabled": true,
+      "category_hint": "战略与安全研究",
+      "priority": 80,
+      "allowed_domains": [
+        "hcss.nl"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "wef",
+      "name": "世界经济论坛",
+      "name_en": "World Economic Forum",
+      "country": "瑞士",
+      "type": "organization",
+      "method": "page",
+      "homepage": "https://www.weforum.org/",
+      "url": "https://www.weforum.org/stories/",
+      "feed": "",
+      "enabled": false,
+      "disabled_reason": "2026-09-22 探测返回403（反爬），待更换入口",
+      "category_hint": "全球治理与AI倡议",
+      "priority": 84,
+      "allowed_domains": [
+        "weforum.org"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "un_news_ai",
+      "name": "联合国新闻·人工智能",
+      "name_en": "UN News - Artificial Intelligence",
+      "country": "国际组织",
+      "type": "organization",
+      "method": "rss",
+      "homepage": "https://news.un.org/",
+      "url": "https://news.un.org/feed/subscribe/en/news/topic/ai/feed/rss.xml",
+      "feed": "https://news.un.org/feed/subscribe/en/news/topic/ai/feed/rss.xml",
+      "enabled": true,
+      "category_hint": "联合国AI议题",
+      "priority": 86,
+      "allowed_domains": [
+        "un.org"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "unctad",
+      "name": "联合国贸易和发展会议",
+      "name_en": "UNCTAD",
+      "country": "国际组织",
+      "type": "organization",
+      "method": "page",
+      "homepage": "https://unctad.org/",
+      "url": "https://unctad.org/news",
+      "feed": "",
+      "enabled": false,
+      "disabled_reason": "2026-09-22 探测返回403（反爬），待更换入口",
+      "category_hint": "数字贸易与发展",
+      "priority": 78,
+      "allowed_domains": [
+        "unctad.org"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "un_desa",
+      "name": "联合国经济和社会事务部",
+      "name_en": "UN Department of Economic and Social Affairs",
+      "country": "国际组织",
+      "type": "organization",
+      "method": "page",
+      "homepage": "https://www.un.org/development/desa/en/",
+      "url": "https://www.un.org/development/desa/en/news/",
+      "feed": "",
+      "enabled": true,
+      "category_hint": "数字政府与治理",
+      "priority": 76,
+      "allowed_domains": [
+        "un.org"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "broadband_commission",
+      "name": "联合国宽带数字发展委员会",
+      "name_en": "Broadband Commission for Sustainable Development",
+      "country": "国际组织",
+      "type": "organization",
+      "method": "page",
+      "homepage": "https://www.broadbandcommission.org/",
+      "url": "https://www.broadbandcommission.org/insights/",
+      "feed": "",
+      "enabled": true,
+      "category_hint": "数字连接与AI",
+      "priority": 74,
+      "allowed_domains": [
+        "broadbandcommission.org"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "ifri",
+      "name": "法国国际关系研究所",
+      "name_en": "French Institute of International Relations",
+      "country": "法国",
+      "type": "thinktank",
+      "method": "page",
+      "homepage": "https://www.ifri.org/",
+      "url": "https://www.ifri.org/en/publications",
+      "feed": "",
+      "enabled": false,
+      "disabled_reason": "2026-09-22 探测返回403（反爬），待更换入口",
+      "category_hint": "外交与安全研究",
+      "priority": 82,
+      "allowed_domains": [
+        "ifri.org"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "ecipe",
+      "name": "欧洲国际政治经济中心",
+      "name_en": "European Centre for International Political Economy",
+      "country": "欧盟",
+      "type": "thinktank",
+      "method": "page",
+      "homepage": "https://ecipe.org/",
+      "url": "https://ecipe.org/publications/",
+      "feed": "",
+      "enabled": true,
+      "category_hint": "数字贸易与监管",
+      "priority": 78,
+      "allowed_domains": [
+        "ecipe.org"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "ceps",
+      "name": "欧洲政策研究中心",
+      "name_en": "Centre for European Policy Studies",
+      "country": "欧盟",
+      "type": "thinktank",
+      "method": "page",
+      "homepage": "https://www.ceps.eu/",
+      "url": "https://www.ceps.eu/ceps-publications/",
+      "feed": "",
+      "enabled": false,
+      "disabled_reason": "2026-09-22 探测返回403（反爬），待更换入口",
+      "category_hint": "欧盟政策研究",
+      "priority": 80,
+      "allowed_domains": [
+        "ceps.eu"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "epc",
+      "name": "欧洲政策分析中心",
+      "name_en": "European Policy Centre",
+      "country": "欧盟",
+      "type": "thinktank",
+      "method": "page",
+      "homepage": "https://www.epc.eu/",
+      "url": "https://www.epc.eu/publications/",
+      "feed": "",
+      "enabled": true,
+      "category_hint": "欧盟政策研究",
+      "priority": 78,
+      "allowed_domains": [
+        "epc.eu"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "bruegel",
+      "name": "布鲁盖尔",
+      "name_en": "Bruegel",
+      "country": "欧盟",
+      "type": "thinktank",
+      "method": "rss",
+      "homepage": "https://www.bruegel.org/",
+      "url": "https://www.bruegel.org/rss.xml",
+      "feed": "https://www.bruegel.org/rss.xml",
+      "enabled": true,
+      "category_hint": "经济与技术政策",
+      "priority": 82,
+      "allowed_domains": [
+        "bruegel.org"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "ecfr",
+      "name": "欧洲外交关系协会",
+      "name_en": "European Council on Foreign Relations",
+      "country": "欧盟",
+      "type": "thinktank",
+      "method": "page",
+      "homepage": "https://ecfr.eu/",
+      "url": "https://ecfr.eu/publications/",
+      "feed": "",
+      "enabled": false,
+      "disabled_reason": "2026-09-22 探测返回403（反爬），待更换入口",
+      "category_hint": "外交与全球治理",
+      "priority": 82,
+      "allowed_domains": [
+        "ecfr.eu"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "imemo",
+      "name": "俄科院世界经济与国际关系研究所",
+      "name_en": "IMEMO RAS",
+      "country": "俄罗斯",
+      "type": "thinktank",
+      "method": "page",
+      "homepage": "https://www.imemo.ru/",
+      "url": "https://www.imemo.ru/en/publications",
+      "feed": "",
+      "enabled": true,
+      "category_hint": "国际关系研究",
+      "priority": 70,
+      "allowed_domains": [
+        "imemo.ru"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "au_pmc",
+      "name": "澳大利亚总理内阁部",
+      "name_en": "Australian Department of the Prime Minister and Cabinet",
+      "country": "澳大利亚",
+      "type": "gov",
+      "method": "page",
+      "homepage": "https://www.pmc.gov.au/",
+      "url": "https://www.pmc.gov.au/news",
+      "feed": "",
+      "enabled": false,
+      "disabled_reason": "2026-09-22 探测返回403（反爬），待更换入口",
+      "category_hint": "政府政策与数字治理",
+      "priority": 78,
+      "allowed_domains": [
+        "pmc.gov.au"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "accc",
+      "name": "澳大利亚竞争和消费者委员会",
+      "name_en": "Australian Competition and Consumer Commission",
+      "country": "澳大利亚",
+      "type": "gov",
+      "method": "page",
+      "homepage": "https://www.accc.gov.au/",
+      "url": "https://www.accc.gov.au/media",
+      "feed": "",
+      "enabled": false,
+      "disabled_reason": "2026-09-22 探测返回403（反爬），待更换入口",
+      "category_hint": "数字平台监管",
+      "priority": 78,
+      "allowed_domains": [
+        "accc.gov.au"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "aspi",
+      "name": "澳大利亚战略政策研究所",
+      "name_en": "Australian Strategic Policy Institute",
+      "country": "澳大利亚",
+      "type": "thinktank",
+      "method": "page",
+      "homepage": "https://www.aspi.org.au/",
+      "url": "https://www.aspi.org.au/",
+      "feed": "",
+      "enabled": true,
+      "category_hint": "战略与科技安全",
+      "priority": 80,
+      "allowed_domains": [
+        "aspi.org.au"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "lowy",
+      "name": "澳大利亚洛伊研究所",
+      "name_en": "Lowy Institute",
+      "country": "澳大利亚",
+      "type": "thinktank",
+      "method": "page",
+      "homepage": "https://www.lowyinstitute.org/",
+      "url": "https://www.lowyinstitute.org/the-interpreter",
+      "feed": "",
+      "enabled": true,
+      "category_hint": "国际政治与科技",
+      "priority": 80,
+      "allowed_domains": [
+        "lowyinstitute.org"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "ictc",
+      "name": "加拿大信息与通信技术委员会",
+      "name_en": "Information and Communications Technology Council",
+      "country": "加拿大",
+      "type": "organization",
+      "method": "page",
+      "homepage": "https://ictc-ctic.ca/",
+      "url": "https://ictc-ctic.ca/",
+      "feed": "",
+      "enabled": true,
+      "category_hint": "数字人才与技术政策",
+      "priority": 74,
+      "allowed_domains": [
+        "ictc-ctic.ca"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "cigi",
+      "name": "加拿大国际治理创新中心",
+      "name_en": "Centre for International Governance Innovation",
+      "country": "加拿大",
+      "type": "thinktank",
+      "method": "page",
+      "homepage": "https://www.cigionline.org/",
+      "url": "https://www.cigionline.org/publications/",
+      "feed": "",
+      "enabled": true,
+      "category_hint": "全球治理与数字政策",
+      "priority": 80,
+      "allowed_domains": [
+        "cigionline.org"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "inss",
+      "name": "以色列国家安全研究所",
+      "name_en": "Institute for National Security Studies",
+      "country": "以色列",
+      "type": "thinktank",
+      "method": "page",
+      "homepage": "https://www.inss.org.il/",
+      "url": "https://www.inss.org.il/publications/",
+      "feed": "",
+      "enabled": true,
+      "category_hint": "国家安全研究",
+      "priority": 76,
+      "allowed_domains": [
+        "inss.org.il"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "jp_soumu",
+      "name": "日本总务省",
+      "name_en": "Japan Ministry of Internal Affairs and Communications",
+      "country": "日本",
+      "type": "gov",
+      "method": "page",
+      "homepage": "https://www.soumu.go.jp/",
+      "url": "https://www.soumu.go.jp/menu_news/s-news/",
+      "feed": "",
+      "enabled": true,
+      "category_hint": "信息通信与AI政策",
+      "priority": 78,
+      "allowed_domains": [
+        "soumu.go.jp"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "jp_mext",
+      "name": "日本文部科学省",
+      "name_en": "Japan Ministry of Education, Culture, Sports, Science and Technology",
+      "country": "日本",
+      "type": "gov",
+      "method": "page",
+      "homepage": "https://www.mext.go.jp/",
+      "url": "https://www.mext.go.jp/en/news/",
+      "feed": "",
+      "enabled": true,
+      "category_hint": "科技与教育政策",
+      "priority": 78,
+      "allowed_domains": [
+        "mext.go.jp"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "jp_digital",
+      "name": "日本数字厅",
+      "name_en": "Japan Digital Agency",
+      "country": "日本",
+      "type": "gov",
+      "method": "page",
+      "homepage": "https://www.digital.go.jp/",
+      "url": "https://www.digital.go.jp/en/",
+      "feed": "",
+      "enabled": true,
+      "category_hint": "数字政府与AI战略",
+      "priority": 80,
+      "allowed_domains": [
+        "digital.go.jp"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "nomura_ri",
+      "name": "日本野村综合研究所",
+      "name_en": "Nomura Research Institute",
+      "country": "日本",
+      "type": "organization",
+      "method": "page",
+      "homepage": "https://www.nri.com/",
+      "url": "https://www.nri.com/en/",
+      "feed": "",
+      "enabled": true,
+      "category_hint": "技术与社会研究",
+      "priority": 74,
+      "allowed_domains": [
+        "nri.com"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "jp_nisc",
+      "name": "日本国家网络安全中心 NISC",
+      "name_en": "Japan National center of Incident readiness and Strategy for Cybersecurity",
+      "country": "日本",
+      "type": "gov",
+      "method": "page",
+      "homepage": "https://www.cyber.go.jp/",
+      "url": "https://www.cyber.go.jp/index.html",
+      "feed": "",
+      "enabled": true,
+      "category_hint": "网络安全政策",
+      "priority": 80,
+      "allowed_domains": [
+        "cyber.go.jp"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "kr_msit",
+      "name": "韩国科学技术信息通信部",
+      "name_en": "Korea Ministry of Science and ICT",
+      "country": "韩国",
+      "type": "gov",
+      "method": "page",
+      "homepage": "https://www.msit.go.kr/",
+      "url": "https://www.msit.go.kr/eng/",
+      "feed": "",
+      "enabled": true,
+      "category_hint": "科技与信息通信政策",
+      "priority": 78,
+      "allowed_domains": [
+        "msit.go.kr"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "stepi",
+      "name": "韩国科技政策研究所",
+      "name_en": "Science and Technology Policy Institute",
+      "country": "韩国",
+      "type": "thinktank",
+      "method": "page",
+      "homepage": "https://www.stepi.re.kr/",
+      "url": "https://www.stepi.re.kr/",
+      "feed": "",
+      "enabled": true,
+      "category_hint": "科技政策研究",
+      "priority": 76,
+      "allowed_domains": [
+        "stepi.re.kr"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "fulcrum",
+      "name": "新加坡 Fulcrum",
+      "name_en": "Fulcrum (ISEAS - Yusof Ishak Institute)",
+      "country": "新加坡",
+      "type": "thinktank",
+      "method": "rss",
+      "homepage": "https://fulcrum.sg/",
+      "url": "https://fulcrum.sg/feed/",
+      "feed": "https://fulcrum.sg/feed/",
+      "enabled": true,
+      "category_hint": "东南亚地缘与科技",
+      "priority": 76,
+      "allowed_domains": [
+        "fulcrum.sg"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "rsis",
+      "name": "新加坡拉惹勒南国际研究院",
+      "name_en": "S. Rajaratnam School of International Studies",
+      "country": "新加坡",
+      "type": "thinktank",
+      "method": "page",
+      "homepage": "https://www.rsis.edu.sg/",
+      "url": "https://www.rsis.edu.sg/rsis-publication/",
+      "feed": "",
+      "enabled": false,
+      "disabled_reason": "2026-09-22 探测返回403（反爬），待更换入口",
+      "category_hint": "战略与国际研究",
+      "priority": 78,
+      "allowed_domains": [
+        "rsis.edu.sg"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
+    },
+    {
+      "id": "orf",
+      "name": "印度观察家研究基金会",
+      "name_en": "Observer Research Foundation",
+      "country": "印度",
+      "type": "thinktank",
+      "method": "page",
+      "homepage": "https://www.orfonline.org/",
+      "url": "https://www.orfonline.org/",
+      "feed": "",
+      "enabled": true,
+      "category_hint": "战略与科技政策",
+      "priority": 78,
+      "allowed_domains": [
+        "orfonline.org"
+      ],
+      "include_patterns": [],
+      "exclude_patterns": [
+        "/tag/",
+        "/author/",
+        "/category/",
+        "/page/"
+      ],
+      "max_candidates": 10
     }
   ]
 }
