@@ -348,10 +348,20 @@ class Fetcher:
             return True
         return False
 
-    @staticmethod
-    def _is_route_failure(exc: Exception) -> bool:
-        """只把代理连接失败视为线路故障；站点超时必须隔离在当前来源。"""
-        return isinstance(exc, requests.exceptions.ProxyError)
+    def _route_failure_confirmed(self, exc: Exception | None = None) -> bool:
+        """确认故障来自当前代理线路，而不是单个目标站点。
+
+        本地代理核心仍在监听时，出口节点故障可能表现为 ConnectionError、
+        Timeout，甚至由代理返回 502/503/504。除明确的 ProxyError 外，先用
+        独立连通性地址探测当前线路，探测失败才允许全局切线。
+        """
+        if isinstance(exc, requests.exceptions.ProxyError):
+            return True
+        healthy, reason = self._probe_route(self._route_index)
+        if healthy:
+            return False
+        logger.warning("当前网络线路确认不可用：%s (%s)", self.active_route_name, reason)
+        return True
 
     @staticmethod
     def _is_retryable(exc: Exception) -> bool:
@@ -363,13 +373,25 @@ class Fetcher:
         return status is not None and (status >= 500 or status == 429)
 
     def _get_with_failover(self, value: str, **kwargs) -> requests.Response:
-        """执行一次 GET；仅连接、代理或超时故障触发主备切换。"""
+        """执行一次 GET；线路探测确认故障后再切换并重试一次。"""
         try:
-            return self.session.get(value, **kwargs)
+            response = self.session.get(value, **kwargs)
         except requests.RequestException as exc:
-            if self._is_route_failure(exc) and self._switch_to_backup():
+            route_related = isinstance(
+                exc,
+                (
+                    requests.exceptions.ProxyError,
+                    requests.exceptions.ConnectionError,
+                    requests.exceptions.Timeout,
+                ),
+            )
+            if route_related and self._route_failure_confirmed(exc) and self._switch_to_backup():
                 return self.session.get(value, **kwargs)
             raise
+        if response.status_code in {502, 503, 504}:
+            if self._route_failure_confirmed() and self._switch_to_backup():
+                return self.session.get(value, **kwargs)
+        return response
 
     def check_connectivity(self, value: str | None = None) -> str:
         """依次探测主备线路，返回首条可用线路名称。"""

@@ -1,7 +1,6 @@
 # ===== 密钥与凭据（严禁提交真实值）=====
-.env
-.env.*
-.env-*
+# 覆盖 .env、.env.local、.env原、.env-backup 等所有私密变体；模板例外。
+.env*
 !.env.example
 deepseek_API.txt
 *_API.txt
@@ -11,6 +10,13 @@ deepseek_API.txt
 *.key
 credentials.json
 token.json
+*.ovpn
+
+# Mihomo 真实配置包含订阅凭据；仓库只保留 config.example.yaml 和冒烟模板。
+deploy/mihomo/config.yaml
+deploy/mihomo/providers/
+mihomo*.exe
+mihomo*.zip
 
 # ===== 运行时数据与产物 =====
 data/
@@ -28,6 +34,7 @@ logs/
 *.bak
 *.backup
 report_output/
+runtime/
 tmp/
 *.tmp
 *.pid

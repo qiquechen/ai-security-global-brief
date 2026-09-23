@@ -617,11 +617,16 @@ class IngestTests(unittest.TestCase):
             self.assertEqual("备用线路", fetcher.active_route_name)
 
     def test_fetcher_does_not_switch_routes_for_site_timeout(self):
+        class FakeResponse:
+            status_code = 204
+
         class FakeSession:
             def __init__(self):
                 self.proxies = {}
 
-            def get(self, _url, **_kwargs):
+            def get(self, url, **_kwargs):
+                if url == config.INGEST_CONNECTIVITY_TEST_URL:
+                    return FakeResponse()
                 raise requests.ReadTimeout("site too slow")
 
             def close(self):
@@ -637,6 +642,60 @@ class IngestTests(unittest.TestCase):
                 fetcher._get_with_failover("https://slow.example.com", timeout=1)
             self.assertEqual("主线路", fetcher.active_route_name)
             self.assertEqual(0, fetcher.coordinator.route_index)
+
+    def test_fetcher_switches_when_timeout_is_confirmed_as_route_failure(self):
+        class FakeResponse:
+            status_code = 204
+
+        class FakeSession:
+            def __init__(self):
+                self.proxies = {}
+
+            def get(self, url, **_kwargs):
+                proxy = self.proxies.get("https")
+                if proxy == "http://primary.test:1":
+                    raise requests.ConnectTimeout("primary exit down")
+                return FakeResponse()
+
+            def close(self):
+                pass
+
+        with patch.object(config, "PROXY_PRIMARY", "http://primary.test:1"), patch.object(
+            config, "PROXY_BACKUP", "http://backup.test:2"
+        ):
+            fetcher = Fetcher()
+            fetcher.session = FakeSession()
+            fetcher._apply_route(0)
+            response = fetcher._get_with_failover("https://example.com", timeout=1)
+            self.assertEqual(204, response.status_code)
+            self.assertEqual("备用线路", fetcher.active_route_name)
+
+    def test_fetcher_switches_when_proxy_gateway_error_is_confirmed(self):
+        class FakeResponse:
+            def __init__(self, status_code):
+                self.status_code = status_code
+
+        class FakeSession:
+            def __init__(self):
+                self.proxies = {}
+
+            def get(self, _url, **_kwargs):
+                if self.proxies.get("https") == "http://primary.test:1":
+                    return FakeResponse(502)
+                return FakeResponse(204)
+
+            def close(self):
+                pass
+
+        with patch.object(config, "PROXY_PRIMARY", "http://primary.test:1"), patch.object(
+            config, "PROXY_BACKUP", "http://backup.test:2"
+        ):
+            fetcher = Fetcher()
+            fetcher.session = FakeSession()
+            fetcher._apply_route(0)
+            response = fetcher._get_with_failover("https://example.com", timeout=1)
+            self.assertEqual(204, response.status_code)
+            self.assertEqual("备用线路", fetcher.active_route_name)
 
     def test_fetcher_keeps_current_route_when_backup_probe_fails(self):
         class FakeSession:

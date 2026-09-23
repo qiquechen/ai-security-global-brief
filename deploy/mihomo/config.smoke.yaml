@@ -1,0 +1,23 @@
+# 无订阅的本地演练配置，只验证 Mihomo 可启动及本地端口可工作。
+log-level: warning
+mode: rule
+allow-lan: false
+ipv6: false
+external-controller: 127.0.0.1:19090
+secret: smoke-test-only
+
+proxies:
+  - name: DIRECT-SMOKE
+    type: direct
+    udp: false
+
+listeners:
+  - name: crawler-proxy
+    type: mixed
+    listen: 127.0.0.1
+    port: 17890
+    proxy: DIRECT-SMOKE
+    udp: false
+
+rules:
+  - MATCH,DIRECT-SMOKE

@@ -21,14 +21,16 @@ ai-digest/
 │  └─ ingest/                   # H2采集底座（已接入H1数据库契约）
 ```
 
-## 快速开始
+## 快速开始（Windows PowerShell）
 
-```bash
-python -m venv .venv                 # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-cp .env.example .env                 # 填入 DeepSeek key / SMTP 授权码
-python scripts/demo_h1.py            # 跑通：判定 → 摘要 → 生成双合集及逐条原文docx
-python scripts/demo_h1.py --send     # 全部生成后一次发到 RECIPIENT
+```powershell
+py -3.11 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+$env:PYTHONUTF8 = "1"
+python -m pip install -r requirements.txt
+crawl4ai-setup
+Copy-Item .env.example .env          # 填入 DeepSeek key / SMTP 授权码
+python scripts/demo_h1.py            # 不发邮件
 ```
 
 ## 测试
@@ -37,7 +39,35 @@ python scripts/demo_h1.py --send     # 全部生成后一次发到 RECIPIENT
 python -m unittest discover -s tests
 ```
 
-测试全部以标准库 `unittest` 编写（当前 59 个用例），**不需要额外安装 pytest**；网络与模型调用均以 mock 替代，可离线运行。
+测试全部以标准库 `unittest` 编写（当前 61 个用例），**不需要额外安装 pytest**；网络与模型调用均以 mock 替代，可离线运行。2026-09-23 验收时 61 项全部通过，`pip check` 未发现损坏依赖。
+
+## Mihomo 采集代理（Windows PC/服务器）
+
+项目使用应用层 HTTP/SOCKS 代理，不要求 OpenVPN，也不需要接管系统全局流量。推荐让
+Mihomo 在内部完成订阅刷新、节点健康检查、自动测速和主备供应商切换，采集器只连接
+一个稳定的本地端口。
+
+```powershell
+.\scripts\install_mihomo_pc.ps1
+# 编辑 runtime\mihomo\config.yaml，填写两个订阅 URL 和至少 32 字符的随机 secret
+.\scripts\start_mihomo_pc.ps1
+.\scripts\test_mihomo_pc.ps1
+```
+
+`.env` 推荐配置：
+
+```dotenv
+PROXY=
+PROXY_PRIMARY=http://127.0.0.1:17890
+PROXY_BACKUP=
+INGEST_CONNECTIVITY_CHECK=true
+INGEST_CONNECTIVITY_TEST_URL=https://www.gstatic.com/generate_204
+```
+
+Mihomo 已在 `OUTBOUND` 策略组内执行主备切换，因此不应把同一 Mihomo 的等价端口再填入
+`PROXY_BACKUP`。该字段保留给未来第二个独立代理进程。真实配置位于被 Git 忽略的
+`runtime/mihomo/`；不得提交订阅 URL 或控制器 `secret`。完整演练见
+`docs/Mihomo-PC部署演练.md`。
 
 ## H2采集与融合运行
 
@@ -61,10 +91,24 @@ python scripts/run_daily.py --input db --hours 1440
 python scripts/run_crawl.py
 ```
 
+部署验收建议按以下顺序执行：
+
+```powershell
+python -m ai_digest.ingest.run --check-connectivity
+python -m ai_digest.ingest.run --source aisi_uk --days 30 --max-per-source 2 --export data/crawl-smoke.jsonl --verbose
+python scripts/probe_lnc.py
+python scripts/run_daily.py --input sample --ready-file data/ready-test.txt
+python scripts/send_ready.py --ready-file data/ready-test.txt --check
+# 核对测试收件人后才执行真实投递：
+python scripts/send_ready.py --ready-file data/ready-test.txt
+```
+
 采集侧默认遵守域名白名单与 `robots.txt`，同域请求间隔0.3秒，读取 `.env`
 中的 `PROXY_PRIMARY`/`PROXY_BACKUP`；旧 `PROXY` 始终作为末级兜底线路，
 避免主备都失效时整次采集失败。启动时会检测所有配置线路；只有明确的代理连接
-故障才会切换到已探测可用的其他线路，单个站点超时不会触发全局切线。`robots.txt`
+故障，或连接超时、代理网关 502/503/504 经独立探针确认是线路故障后，才会切换到
+已探测可用的其他线路；单个站点超时不会触发全局切线。Windows PC 上使用 Mihomo
+进行订阅更新、节点健康检查和自动主备切换的演练见 `docs/Mihomo-PC部署演练.md`。`robots.txt`
 能读取时会严格执行禁抓规则；
 无法读取（超时/SSL/5xx）时默认放行并告警（可设 `INGEST_ROBOTS_FAIL_CLOSED=true`
 改回 fail-closed）。来源失败会写入 `logs/`，不会中断其他来源；4xx 结果不重试，
@@ -103,6 +147,12 @@ crawl4ai-setup
 和正文指纹去重。已确认发布日期的 URL 会写入 `crawl_observations`，后续小时任务
 直接跳过窗口外旧文章；历史扩窗覆盖其发布日期时仍会正常抓取。连续三个文章页
 返回 401/403 时会提前停止该来源，避免反复请求。
+
+数据库包含 `articles`（正文及 URL/指纹去重）、`rejected_articles`（默认保留 7 天的
+剔除 URL）和 `crawl_observations`（已确认发布日期的 URL 缓存）。当前尚未实现
+`articles` 正文生命周期；规划方案是正文抓取 180 天后仅清空 `text`，继续保留 URL、
+`dedup_hash` 和元数据以维持去重。SQLite 不会自行执行按时 TTL，落地时须由每日任务或
+维护脚本触发，不能直接定期删除整行。
 
 来源清单现有 144 项、启用 123 项、停用 21 项。2026-09-13 队友版本新增 15 项（补齐 40 家清单缺项 +
 官方/国际源 + 纽约时报科技），并修复 `independent_ai` 白名单（站点已迁移到
